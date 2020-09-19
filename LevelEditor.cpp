@@ -535,8 +535,15 @@ class WindowManager {
 		/**
 		 * Quit if window is closed
 		 */
-		if(event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE) {
-			returnValue = false;
+		if(event.type == SDL_WINDOWEVENT) {
+			if(event.window.event == SDL_WINDOWEVENT_CLOSE) {
+				returnValue = false;
+			}
+			else if(event.window.event == SDL_WINDOWEVENT_RESIZED) {
+				SCREEN_WIDTH = event.window.data1;
+				SCREEN_HEIGHT = event.window.data2;
+				build();
+			}
 		}
 		
 		//then other cases
@@ -755,6 +762,7 @@ int main() {
 	IMG_Init(IMG_INIT_PNG);
 	TTF_Init();
 	SDL_Window *window = SDL_CreateWindow(WINDOW_TITLE.c_str(),SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,SCREEN_WIDTH,SCREEN_HEIGHT,0);
+	SDL_SetWindowResizable(window,SDL_TRUE);
 	SDL_Renderer *renderer  = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
 	SDL_Event event;
