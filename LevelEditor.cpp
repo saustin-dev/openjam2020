@@ -23,7 +23,7 @@ std::string WINDOW_TITLE = "Level Editor";
 /**
  * The font to use
  */
-std::string const FONT_NAME = "Ubuntu-R.ttf";
+std::string const FONT_NAME = "Assets/TTF/Ubuntu-R.ttf";
 /**
  * The default folder to save levels
  */
@@ -84,6 +84,8 @@ class TextTile : public MapTile {
 	void setText(std::string text) {
 		this->text = text;
 		TTF_Font *font = TTF_OpenFont(FONT_NAME.c_str(), 32);
+		if(!font)
+			throw;
 		SDL_Surface *surface = TTF_RenderText_Solid(font,text.c_str(), {0, 0, 0});
 		texture = SDL_CreateTextureFromSurface(renderer, surface);
 		SDL_FreeSurface(surface);
@@ -398,7 +400,6 @@ class WindowManager {
 		this->data = data;
 		mapW = 1;
 		lmbDown = false;
-		
 		build();
 	}
 	
@@ -426,11 +427,9 @@ class WindowManager {
 	 */
 	void build() {
 		destroy();
-		
 		//build the backgrounds
 		background = new SpecificElement(new ColorTile({200, 200, 200, 255}, renderer), {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT});
 		sidePanel = new SpecificElement(new ColorTile({121, 121, 121, 255}, renderer), {0, 0, SCREEN_WIDTH/4, SCREEN_HEIGHT});
-		
 		//build the tile palette
 		int columns = (sidePanel->getW()-1) / (tileSize+1);
 		int x = 0;
@@ -443,11 +442,9 @@ class WindowManager {
 				y++;
 			}
 		}
-		
 		//build the active text/tile
 		activeText = new SpecificElement(new TextTile("Active Element:", renderer), {0,(int)14.5*SCREEN_HEIGHT/16,SCREEN_WIDTH/8,SCREEN_WIDTH/24});
 		activeTile = new SpecificTile(tileset,{SCREEN_WIDTH/8 + (SCREEN_WIDTH/8-SCREEN_HEIGHT/16)/2,7*SCREEN_HEIGHT/8, SCREEN_HEIGHT/16,SCREEN_HEIGHT/16},activeIndex);
-		
 		//construct the map
 		int mapH = data->getH();
 		mapW = data->getW();
@@ -755,7 +752,7 @@ int main() {
 			exit(EXIT_FAILURE);
 		}
 	}
-	printf("Loaded file: %d x %d\n",mapData->getW(), mapData->getH());
+	//printf("Loaded file: %d x %d\n",mapData->getW(), mapData->getH());
 	
 	//start SDL
 	SDL_Init(0);

@@ -12,7 +12,8 @@
 /**
  * The font to use
  */
-std::string const FONT_NAME = "Ubuntu-R.ttf";
+std::string const FONT_NAME = "Assets/TTF/Ubuntu-R.ttf";
+int const FONT_SIZE = 64;
 
 //Visual output
 //-------------------------------------------------------------------------
@@ -72,7 +73,7 @@ class TextTile : public MapTile {
 	
 	void setText(std::string text) {
 		this->text = text;
-		TTF_Font *font = TTF_OpenFont(FONT_NAME.c_str(), 32);
+		TTF_Font *font = TTF_OpenFont(FONT_NAME.c_str(), FONT_SIZE);
 		SDL_Surface *surface = TTF_RenderText_Solid(font,text.c_str(), {0, 0, 0});
 		texture = SDL_CreateTextureFromSurface(renderer, surface);
 		SDL_FreeSurface(surface);

@@ -6,6 +6,7 @@
 #include "SDL2/SDL_image.h"
 #include "SDL2/SDL_ttf.h"
 #include "WindowAbstraction.h"
+#include "WindowsAndMenus.h"
 
 /**
  * Store the coordinates of the mouse pointer
@@ -13,226 +14,159 @@
 int mouseX = 0;
 int mouseY = 0;
 /**
- * Window dimensions
+ * Default window dimensions
  */
-int SCREEN_WIDTH = 1024;
-int SCREEN_HEIGHT = 1024;
+int const SCREEN_WIDTH = 1280;
+int const SCREEN_HEIGHT = 720;
 /**
  * The default window title
  */
 std::string WINDOW_TITLE = "Game Window";
 
-//Building blocks for menus
-//-------------------------------------------------------------------------
 /**
- * A button that changes color when hovered over
+ * Windowed resolutions to toggle through
  */
-class Button {
-	protected:
-	SpecificElement *bg;
-	SpecificElement *bg2;
-	SpecificElement *text;
-	bool hovered;
-	
-	public:
-	Button(SDL_Renderer *renderer, std::string buttonText, SDL_Color color1, SDL_Color color2, SDL_Rect rect) {
-		bg = new SpecificElement(new ColorTile(color1, renderer), rect);
-		bg2 = new SpecificElement(new ColorTile(color2, renderer), rect);
-		int offX = rect.w/10;
-		int offY = rect.h/10;
-		text = new SpecificElement(new TextTile(buttonText, renderer), { rect.x+offX, rect.y+offY, rect.w-2*offX, rect.h-2*offY });
-		hovered = false;
-	}
-	~Button() {
-		if(bg) delete(bg);
-		if(bg2) delete(bg2);
-		if(text) delete(text);
-	}
-	
-	void hover(int mouseX, int mouseY) {
-		if(click(mouseX, mouseY)) {
-			hovered = true;
-		}
-		else {
-			hovered = false;
-		}
-	}
-	
-	bool click(int mouseX, int mouseY) {
-		return bg->click(mouseX, mouseY);
-	}
-	
-	void draw() {
-		if(hovered) {
-			bg2->draw();
-		}
-		else {
-			bg->draw();
-		}
-		text->draw();
-	}
-};
+int const X_RESOLUTIONS[2][3] = { { 640, 1024, 1600 }, { 720, 1280, 1600 } };
+int const Y_RESOLUTIONS[2][3] = { { 480, 768, 1200 }, { 480, 720, 900 } };
+int ratio = 1;
+int res = 1;
 
-/**
- * Generic class for things that can be rendered in a window
- */
-class Visual {
+class GameWindow : public Window {
 	public:
-	virtual ~Visual() {
-	};
-	
-	virtual void draw() {
-	};
-	virtual void hover() {
-	};
-	virtual int click() {
-		return -1;
-	};
-};
-/**
- * Simple class for quick and easy menus
- */
-class Menu : public Visual{
-	protected:
-	std::vector<SpecificElement*> elements;
-	std::vector<Button*> buttonVector;
-	SDL_Renderer *renderer;
-	std::string title;
-	std::string background;
-	int buttons;
-	int side;
-	std::vector<std::string> buttonLabels;
-	
-	public:
-	Menu(SDL_Renderer *renderer, std::string title, std::string background, int buttons, std::string buttonLabels[], int side) {
+	GameWindow(SDL_Renderer *renderer, SDL_Window *window) {
+		this->window = window;
+		SDL_GetWindowSize(window,&SCREEN_WIDTH,&SCREEN_HEIGHT);
+		quit = false;
 		this->renderer = renderer;
-		this->title = title;
-		this->background = background;
-		this->buttons = buttons;
-		for(int i = 0; i < buttons; i++) {
-			this->buttonLabels.push_back(buttonLabels[i]);
-		}
-		this->side = side;
+		activeVisual = nullptr;
+		this->activeTitle = "Main Menu";
 		
 		build();
+		
 	}
-	~Menu() {
+	~GameWindow() {
 		destroy();
 	}
 	
 	void destroy() {
-		while(elements.size()) {
-			if(elements.back()) delete(elements.back());
-			elements.pop_back();
+		while(visuals.size()) {
+			//This warns about non-virtual destructor in Visual but if I add virtual deconstructor it segfaults...
+			//if(visuals.back()) delete(visuals.back());
+			visuals.pop_back();
 		}
-		while(buttonVector.size()) {
-			if(buttonVector.back()) delete(buttonVector.back());
-			elements.pop_back();
+		while(logics.size()) {
+			if(logics.back()) delete(logics.back());
+			logics.pop_back();
 		}
 	}
 	
 	void build() {
 		destroy();
 		
-		//add the background
-		elements.push_back(new SpecificElement(new ImageTile(background, renderer), { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }));
+		//Assemble all the different menus
+		std::string buttons[3] = {"Start Game","Options","Quit"};
+		Menu *mainMenu = new Menu(renderer, "Main Menu", "Assets/Image/space bg 3.bmp",3, buttons, 1, SCREEN_WIDTH, SCREEN_HEIGHT);
+		visuals.push_back(mainMenu);
+		std::string buttons2[4] = {"Fullscreen","Switch Resolution","Switch Ratio", "Go Back"};
+		Menu *optionsMenu = new Menu(renderer, "Options", "Assets/Image/space bg 3.bmp",4, buttons2, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		visuals.push_back(optionsMenu);
 		
-		//establish which part of the screen the menu buttons will occupy
-		SDL_Rect rect;
-		if(side < 0) {
-			rect = { 0, 0, SCREEN_WIDTH/3, SCREEN_HEIGHT };
-		}
-		else if(side == 0) {
-			rect = { SCREEN_WIDTH/3, 0, SCREEN_WIDTH/3, SCREEN_HEIGHT };
-		}
-		else {
-			rect = { 2*SCREEN_WIDTH/3, 0, SCREEN_WIDTH/3, SCREEN_HEIGHT };
-		}
+		std::string buttons3[3] = {"New Game","Load Game","Go Back"};
+		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/space bg 3.bmp",3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
+		visuals.push_back(fileMenu);
 		
-		//get each part of the menu its space rectangle
-		int verticalUnits = buttons + 1;
-		SDL_Rect subrect = rect;
-		subrect.h /= verticalUnits;
-		//add the title
-		int offX = subrect.w/10;
-		int offY = subrect.h/7;
-		elements.push_back(new SpecificElement(new TextTile(title, renderer), { subrect.x+offX, subrect.y+offY, subrect.w-2*offX, subrect.h-2*offY }));
-		//add the buttons
-		for(int i = 0; i < buttons; i++) {
-			subrect.y += subrect.h;
-			buttonVector.push_back(new Button(renderer, buttonLabels.at(i), { 150, 150, 150, 255 }, { 200, 200, 200, 255 }, { subrect.x+offX, subrect.y+offY, subrect.w-2*offX, subrect.h-2*offY } ));
-		}	
+		changeVisual(activeTitle);
 	}
 	
-	void hover() {
-		hover(mouseX, mouseY);
+	void resize(int width, int height) {
+		SCREEN_HEIGHT = height;
+		SCREEN_WIDTH = width;
+		SDL_SetWindowSize(window, width, height);
+		build();
 	}
 	
-	void hover(int mouseX, int mouseY) {
-		for(int i = 0; i < buttons; i++) {
-			buttonVector.at(i)->hover(mouseX, mouseY);
-		}
-	}
-	
-	int click() {
-		return click(mouseX, mouseY);
-	}
-	
-	int click(int mouseX, int mouseY) {
-		int clicked = -1;
-		for(int i = 0; i < buttons; i++) {
-			if(buttonVector.at(i)->click(mouseX, mouseY)) {
-				clicked = i;
+	void changeVisual(std::string title) {
+		for(unsigned int i = 0; i < visuals.size(); i++) {
+			if(visuals.at(i)->getTitle() == title) {
+				activeVisual = visuals.at(i);
+				activeTitle = title;
 				break;
 			}
 		}
-		return clicked;
 	}
 	
-	void draw() {
-		for(unsigned int i = 0; i < elements.size(); i++) {
-			elements.at(i)->draw();
-		}
-		for(int i = 0; i < buttons; i++) {
-			buttonVector.at(i)->draw();
-		}
-	}
+	void handleEvent(SDL_Event event) {
+		activeVisual->hover(mouseX, mouseY);
 		
-};
-
-/**
- * The logic for each view will be handled separately
- */
-class Logic {
-	public:
-	virtual ~Logic() {
-	}
-	
-	virtual void handleEvent(SDL_Event event, int clickButton) {
-	};
-};
-
-/**
- * The highest level which will switch between Visuals such as menus or the game
- */
-class Window {
-	protected:
-	Logic *activeLogic;
-	Visual *activeVisual;
-	std::vector<Logic*> logics;
-	std::vector<Visual> visuals;
-	bool quit;
-	
-	public:
-	virtual ~Window() {
-	};
-	void draw(){
-		activeVisual->draw();
-	}
-	virtual void handleEvent(SDL_Event event){
-	};
-	bool shouldQuit(){
-		return quit;
+		//Only care about left clicks
+		if(event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
+			int clicked = activeVisual->click(mouseX, mouseY);
+			if(activeVisual->getTitle() == "Main Menu") {
+				switch (clicked) {
+					case 0:
+						changeVisual("Play Game");
+						break;
+					case 1:
+						changeVisual("Options");
+						break;
+					case 2:
+						quit = true;
+						break;
+				}
+			}
+			else if(activeVisual->getTitle() == "Options") {
+				switch (clicked) {
+					case 0:
+						//Fullscreen
+						break;
+					case 1:
+						//Change resolution
+						res++;
+						if(res > 2) res = 0;
+						resize(X_RESOLUTIONS[ratio][res],Y_RESOLUTIONS[ratio][res]);
+						break;
+					case 2:
+						//Change ratio
+						ratio++;
+						if(ratio > 1) ratio = 0;
+						resize(X_RESOLUTIONS[ratio][res],Y_RESOLUTIONS[ratio][res]);
+						break;
+					case 3:
+						changeVisual("Main Menu");
+						break;
+				}
+			}
+			else if(activeVisual->getTitle() == "Play Game") {
+				switch (clicked) {
+					case 0:
+						//New game
+						break;
+					case 1:
+						//Load game
+						break;
+					case 2:
+						changeVisual("Main Menu");
+						break;
+				}
+			}
+		}
+		//Keys matter
+		else if(event.type == SDL_KEYDOWN) {
+			
+		}
+		if(event.type == SDL_WINDOWEVENT) {
+			if(event.window.event == SDL_WINDOWEVENT_CLOSE) {
+				quit = true;
+			}
+			else if(event.window.event == SDL_WINDOWEVENT_RESIZED) {
+				resize(event.window.data1, event.window.data2);
+			}
+		}
+		
+		SDL_PumpEvents();
+		SDL_FlushEvents(SDL_FIRSTEVENT,SDL_APP_DIDENTERFOREGROUND);
+		SDL_FlushEvents(SDL_TEXTEDITING,SDL_MOUSEMOTION);
+		SDL_FlushEvents(SDL_MOUSEWHEEL,SDL_LASTEVENT);
 	}
 };
 
@@ -244,31 +178,30 @@ int main() {
 	IMG_Init(IMG_INIT_PNG);
 	TTF_Init();
 	SDL_Window *window = SDL_CreateWindow(WINDOW_TITLE.c_str(),SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,SCREEN_WIDTH,SCREEN_HEIGHT,0);
+	SDL_SetWindowResizable(window,SDL_TRUE);
 	SDL_Renderer *renderer  = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
 	SDL_Event event;
 	
-	std::string buttons[5] = {"button 1","button 2","button 3","button 4","button 5"};
-	Menu *testMenu = new Menu(renderer, "test menu", "space bg 3.bmp",5, buttons, 1);
+	GameWindow *gameWindow = new GameWindow(renderer, window);
 	
 	//main loop
-	bool run = true;
-	while(run) {
+	while(!gameWindow->shouldQuit()) {
 		while(SDL_PollEvent(&event)) {
 			SDL_GetMouseState(&mouseX, &mouseY);
-			testMenu->hover(mouseX, mouseY);
+			gameWindow->handleEvent(event);
 		}
-		testMenu->draw();
+		gameWindow->draw();
 		SDL_RenderPresent(renderer);
 	}
-	
+
 	//quit SDL
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
-	
+
 	//garbage collect
-	delete(testMenu);
+	delete(gameWindow);
 	
 	//and done
 	return 0;
