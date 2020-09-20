@@ -9,6 +9,7 @@
 #include "WindowAbstraction.h"
 #include "WindowsAndMenus.h"
 #include "GameData.h"
+#include "PlayerLogic.h"
 
 /**
  * Store the coordinates of the mouse pointer
@@ -109,9 +110,10 @@ class MusicHandler {
 	}
 	
 	void stop() {
+		//if(currentMusic) Mix_FreeMusic(currentMusic);
 		Mix_HaltMusic();
 		currentSong = "";
-		Mix_FreeMusic(currentMusic);
+		
 	}
 };
 
@@ -268,7 +270,9 @@ class GameWindow : public Window {
 		}
 		//Keys matter
 		else if(event.type == SDL_KEYDOWN) {
-			
+			if(activeVisual->getTitle() == "Game") {
+				
+			}
 		}
 		if(event.type == SDL_WINDOWEVENT) {
 			if(event.window.event == SDL_WINDOWEVENT_CLOSE) {
