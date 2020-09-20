@@ -3,7 +3,8 @@
 This is my repo for my entry to Open Jam 2020.
 
 ## Open Source Tools Used:
-- gcc
+- gcc/g++
 - SDL2
 - Geany
 - Ubuntu
+- Musescore
