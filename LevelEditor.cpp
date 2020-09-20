@@ -146,6 +146,8 @@ class TilesetDrawer {
 	}
 	
 	void draw(SDL_Rect rect, int index) {
+		if(index < 0)
+			return;
 		SDL_Rect src;
 		src.w = squareSide;
 		src.h = squareSide;
@@ -319,7 +321,8 @@ class MapData {
 };
 
 void floodFill(MapData *mapData, int x, int y, int newValue) {
-	if(x<0 || y<0 || x>=mapData->getW() || y>=mapData->getH()) {
+	printf("Fill called with value=%d\n",newValue);
+	if(x < 0 || y < 0 || x>=mapData->getW() || y>=mapData->getH()) {
 		return;
 	}
 	
@@ -327,7 +330,7 @@ void floodFill(MapData *mapData, int x, int y, int newValue) {
 	int h = mapData->getH();
 	int oldValue = mapData->getData()[y][x];
 	int **data = mapData->getData();
-	data[y][x] = -1;
+	data[y][x] = -2;
 	
 	bool changed = true;
 	while(changed) {
@@ -335,23 +338,23 @@ void floodFill(MapData *mapData, int x, int y, int newValue) {
 		for(int y = 0; y < h; y++) {
 			for(int x = 0; x < w; x++) {
 				if(data[y][x] == oldValue) {
-					if(x>0 && data[y][x-1] == -1) {
-						data[y][x] = -1;
+					if(x>0 && data[y][x-1] == -2) {
+						data[y][x] = -2;
 						changed = true;
 						continue;
 					}
-					if(x<w-1 && data[y][x+1] == -1) {
-						data[y][x] = -1;
+					if(x<w-1 && data[y][x+1] == -2) {
+						data[y][x] = -2;
 						changed = true;
 						continue;
 					}
-					if(y>0 && data[y-1][x] == -1) {
-						data[y][x] = -1;
+					if(y>0 && data[y-1][x] == -2) {
+						data[y][x] = -2;
 						changed = true;
 						continue;
 					}
-					if(y<h-1 && data[y+1][x] == -1) {
-						data[y][x] = -1;
+					if(y<h-1 && data[y+1][x] == -2) {
+						data[y][x] = -2;
 						changed = true;
 						continue;
 					}
@@ -361,7 +364,7 @@ void floodFill(MapData *mapData, int x, int y, int newValue) {
 	}
 	for(int y = 0; y < h; y++) {
 		for(int x = 0; x < w; x++) {
-			if(data[y][x] == -1) {
+			if(data[y][x] == -2) {
 				data[y][x] = newValue;
 			}
 		}
@@ -501,12 +504,15 @@ class WindowManager {
 		if(event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
 			//if clicked side panel, check tileset vector
 			if(sidePanel->click()) {
+				bool wasTile = false;
 				for(unsigned int i = 0; i < tilesetTiles.size(); i++) {
 					if(tilesetTiles.at(i)->click()) {
 						activeIndex = tilesetTiles.at(i)->getIndex();
+						wasTile = true;
 						break;
 					}
 				}
+				if(!wasTile) activeIndex = -1;
 				activeTile->updateValue(activeIndex);
 			}
 			lmbDown = true;
@@ -518,7 +524,7 @@ class WindowManager {
 		 * Flood fill when press F
 		 */
 		if(event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_f) {
-			if(!sidePanel->click() && activeIndex > -1) {
+			if(!sidePanel->click() && activeIndex >= -1) {
 				int i = 0;
 				for(; (unsigned int)i < mapTiles.size(); i++) {
 					if(mapTiles.at(i)->click()) {
@@ -629,10 +635,10 @@ void getInfo(std::string *input, int *width, int *height, std::string *tileset, 
 		exit(EXIT_FAILURE);
 	}
 	fclose(fp);
-	if(strlen(filename) < 5 || strcmp((char*)filename+strlen(filename)-4,".bmp")) {
+	/*if(strlen(filename) < 5 || strcmp((char*)filename+strlen(filename)-4,".bmp")) {
 		printf("Tileset must be .bmp format, aborting...\n");
 		exit(EXIT_FAILURE);
-	}
+	}*/
 	std::string newfilename(filename);
 	*tileset = newfilename;
 	
@@ -651,7 +657,7 @@ MapData *readFile(std::string filename) {
 	}
 	int w = getw(fp);
 	int h = getw(fp);
-	printf("Loading file: %d x %d\n",w, h);
+	//printf("Loading file: %d x %d\n",w, h);
 	MapData *data = new MapData(w, h);
 	int **theData = data->getData();
 	for(int y = 0; y < h; y++) {
@@ -669,7 +675,7 @@ MapData *readFile(std::string filename) {
 void writeFile(std::string filename, MapData *data) {
 	FILE *fp = fopen(filename.c_str(), "w");
 	if(!fp) {
-		throw;
+		throw new std::exception;
 	}
 	putw(data->getW(), fp);
 	putw(data->getH(), fp);

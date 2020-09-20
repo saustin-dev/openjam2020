@@ -7,6 +7,7 @@
 #include "SDL2/SDL_ttf.h"
 #include "WindowAbstraction.h"
 #include "WindowsAndMenus.h"
+#include "GameData.h"
 
 /**
  * Store the coordinates of the mouse pointer
@@ -26,10 +27,57 @@ std::string WINDOW_TITLE = "Game Window";
 /**
  * Windowed resolutions to toggle through
  */
-int const X_RESOLUTIONS[2][3] = { { 640, 1024, 1600 }, { 720, 1280, 1600 } };
-int const Y_RESOLUTIONS[2][3] = { { 480, 768, 1200 }, { 480, 720, 900 } };
+int const X_RESOLUTIONS[2][3] = { { 640, 1024, 1200 }, { 720, 1280, 1600 } };
+int const Y_RESOLUTIONS[2][3] = { { 480, 768, 900 }, { 480, 720, 900 } };
 int ratio = 1;
 int res = 1;
+
+class GameDrawer : public Visual {
+	private:
+	std::string title;
+	SDL_Renderer *renderer;
+	TilesetDrawer *tilesetDrawer;
+	SpecificElement *bg;
+	MapData *currentMap;
+	int tileRes;
+	
+	public:
+	GameDrawer(SDL_Renderer *renderer, std::string title, std::string background, SDL_Rect rect, MapData *map, int tileRes) {
+		this->title = title;
+		this->tilesetDrawer = new TilesetDrawer("Assets/Image/metroidvania.png",renderer,16);
+		this->tileRes = tileRes;
+		this->currentMap = map;
+		this->bg = new SpecificElement(new ImageTile(background, renderer), rect);
+	}
+	~GameDrawer() {
+		delete(tilesetDrawer);
+		delete(bg);
+	}
+	
+	std::string getTitle() {
+		return this->title;
+	}
+	
+	void hover(int mouseX, int mouseY) {
+	}
+	int click(int mouseX, int mouseY) {
+		return -1;
+	}
+	
+	void draw() {
+		bg->draw();
+		int offX = 0;
+		int offY = 0;
+		int w = currentMap->getW();
+		int h = currentMap->getH();
+		int **data = currentMap->getData();
+		for(int y = 0; y < h; y++) {
+			for(int x = 0; x < w; x++) {
+				tilesetDrawer->draw({offX+tileRes*x,offY+tileRes*y,tileRes,tileRes},data[y][x]);
+			}
+		}
+	}
+};
 
 class GameWindow : public Window {
 	public:
@@ -75,6 +123,9 @@ class GameWindow : public Window {
 		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/space bg 3.bmp",3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(fileMenu);
 		
+		GameDrawer *drawer = new GameDrawer(renderer,"Game","Assets/Image/space bg 3.bmp", {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},readFile("Data/Maps/TestMap.map"),32);
+		visuals.push_back(drawer);
+		
 		changeVisual(activeTitle);
 	}
 	
@@ -82,6 +133,7 @@ class GameWindow : public Window {
 		SCREEN_HEIGHT = height;
 		SCREEN_WIDTH = width;
 		SDL_SetWindowSize(window, width, height);
+		SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 		build();
 	}
 	
@@ -140,6 +192,7 @@ class GameWindow : public Window {
 				switch (clicked) {
 					case 0:
 						//New game
+						changeVisual("Game");
 						break;
 					case 1:
 						//Load game

@@ -134,6 +134,8 @@ class TilesetDrawer {
 	}
 	
 	void draw(SDL_Rect rect, int index) {
+		if(index < 0)
+			return;
 		SDL_Rect src;
 		src.w = squareSide;
 		src.h = squareSide;
