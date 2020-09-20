@@ -43,6 +43,7 @@ class GameDrawer : public Visual {
 	MapData *currentMap;
 	int tileRes;
 	std::string activeCommand;
+	Player *player;
 	
 	public:
 	GameDrawer(SDL_Renderer *renderer, std::string title, std::string background, std::string activeCommand, SDL_Rect rect, MapData *map, int tileRes) {
@@ -51,6 +52,7 @@ class GameDrawer : public Visual {
 		this->tileRes = tileRes;
 		this->currentMap = map;
 		this->bg = new SpecificElement(new ImageTile(background, renderer), rect);
+		this->player = new Player(renderer, 0, 0, map, tileRes);
 	}
 	~GameDrawer() {
 		delete(tilesetDrawer);
@@ -79,10 +81,20 @@ class GameDrawer : public Visual {
 				tilesetDrawer->draw({offX+tileRes*x,offY+tileRes*y,tileRes,tileRes},data[y][x]);
 			}
 		}
+		player->draw(player->getRect());
 	}
 	
 	std::string onActive() {
 		return activeCommand;
+	}
+	
+	void update() {
+		player->update();
+		//printf("%d,%d,%d,%d\n",player->getRect().x,player->getRect().y,player->getRect().w,player->getRect().h);
+	}
+	
+	void handleInput(SDL_Event event) {
+		player->handleInput(event);
 	}
 };
 
@@ -212,6 +224,10 @@ class GameWindow : public Window {
 		}
 	}
 	
+	void update() {
+		activeVisual->update();
+	}
+	
 	void handleEvent(SDL_Event event) {
 		activeVisual->hover(mouseX, mouseY);
 		
@@ -269,9 +285,9 @@ class GameWindow : public Window {
 			}
 		}
 		//Keys matter
-		else if(event.type == SDL_KEYDOWN) {
+		else if(event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
 			if(activeVisual->getTitle() == "Game") {
-				
+				activeVisual->handleInput(event);
 			}
 		}
 		if(event.type == SDL_WINDOWEVENT) {
@@ -306,16 +322,20 @@ int main() {
 	SDL_Event event;
 	
 	GameWindow *gameWindow = new GameWindow(renderer, window);
-	
+	unsigned int lastTime = SDL_GetTicks();
 	//main loop
 	while(!gameWindow->shouldQuit()) {
 		while(SDL_PollEvent(&event)) {
 			SDL_GetMouseState(&mouseX, &mouseY);
 			gameWindow->handleEvent(event);
 		}
+		gameWindow->update();
 		gameWindow->parseQueue();
 		gameWindow->draw();
 		SDL_RenderPresent(renderer);
+		unsigned int elapsedTime = SDL_GetTicks() - lastTime;
+		lastTime = SDL_GetTicks();
+		SDL_Delay(elapsedTime <= 16 ? 16 - elapsedTime : 0);
 	}
 
 	//quit SDL

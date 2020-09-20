@@ -8,7 +8,6 @@
 #include "SDL2/SDL_mixer.h"
 #include "GameData.h"
 
-
 #ifndef PLAYERLOGIC_H
 #define PLAYERLOGIC_H
 
@@ -27,182 +26,198 @@ int const JUMP_YVEL = -300;
 
 std::string const SPRITE_DIRECTORY = "Assets/Image/";
 
-class Player {
+class Player;
+
+class PlayerCollider {
 	private:
-	class PlayerCollider {
-		private:
-		SDL_Rect rect;
-		int xvel;
-		int yvel;
-		int gravity;
-		Player *parent;
-		unsigned int lastTime;
-		MapData *map;
-		int tileSize;
-		
-		public:
-		PlayerCollider(int xpos, int ypos, Player *parent, MapData *map, int tileSize) {
-			changeMap(map, xpos, ypos);
-			xvel = 0;
-			yvel = 0;
+	SDL_Rect rect;
+	int xvel;
+	int yvel;
+	int gravity;
+	Player *parent;
+	unsigned int lastTime;
+	bool collidedLeft;
+	bool collidedRight;
+	bool collidedTop;
+	bool collidedBottom;
+	MapData *map;
+	int tileSize;
+	
+	public:
+	PlayerCollider(int xpos, int ypos, Player *parent, MapData *map, int tileSize) {
+		changeMap(map, xpos, ypos);
+		xvel = 0;
+		yvel = 0;
+		gravity = 0;
+		collidedLeft = false;
+		collidedRight = false;
+		collidedTop = false;
+		collidedBottom = false;
+		this->tileSize = tileSize;
+	}
+	~PlayerCollider() {
+	}
+	
+	SDL_Rect getRect() {
+		return rect;
+	}
+	
+	void changeMap(MapData *map, int x, int y) {
+		rect = { x, y, WIDTH, HEIGHT };
+		this->map = map;
+	}
+	
+	void setGravity(bool grav) {
+		if(grav) {
+			gravity = GRAVITY;
+		}
+		else {
 			gravity = 0;
-			this->tileSize = tileSize;
 		}
-		~PlayerCollider() {
-		}
-		
-		SDL_Rect getRect() {
-			return rect;
-		}
-		
-		void changeMap(MapData *map, int x, int y) {
-			rect = { x, y, WIDTH, HEIGHT };
-			this->map = map;
-		}
-		
-		void setGravity(bool grav) {
-			if(grav) {
-				gravity = GRAVITY;
+	}
+	
+	void move(bool direction) {
+		if(!direction)
+			xvel = -1*RUN_SPEED;
+		else
+			xvel = RUN_SPEED;
+	}
+	
+	void update() {
+		collidedBottom = false;
+		collidedLeft = false;
+		collidedRight = false;
+		collidedTop = false;
+		unsigned int elapsedTime = SDL_GetTicks() - lastTime;
+		lastTime = SDL_GetTicks();
+		//handle movement on x and y axis, then add gravity to yvel as well
+		double secs = elapsedTime/1000.0;
+		int xMov = secs*xvel;
+		int yMov = secs*yvel;
+		bool xRight = xMov > 0;
+		while(xMov) {
+			checkCollision();
+			if(xRight) {
+				if(collidedRight)
+					break;
+				rect.x++;
+				xMov--;/*
+				if(checkCollision()) {
+					rect.x--;
+					collidedRight = true;
+					break;
+				}*/
 			}
 			else {
-				gravity = 0;
-			}
-		}
-		
-		void move(bool direction) {
-			if(!direction)
-				xvel = -1*RUN_SPEED;
-			else
-				xvel = RUN_SPEED;
-		}
-		
-		void update() {
-			unsigned int elapsedTime = SDL_GetTicks() - lastTime;
-			lastTime = SDL_GetTicks();
-			//check collision, move if possible, and if collided tell parent state
-			yvel += gravity*(double)elapsedTime/1000.0;
-			
-			int xMov = xvel*(double)elapsedTime/1000.0;
-			//left:
-			while(xMov < 0) {
-				bool collision = false;
-				int x = rect.x-1;
-				for(int y = rect.y; y < rect.y+rect.h; y += tileSize) {
-					if(checkCollision(x,y)) {
-						collision = true;
-						break;
-					}
-				}
-				int y = rect.y+rect.h;
-				if(checkCollision(x,y)) {
-						collision = true;
-				}
-				if(collision) {
-					parent->onCollideLeft();
+				if(collidedLeft)
 					break;
-				}
-				else {
-					rect.x--;
-					xMov++;
-				}
-			}
-			//right:
-			while(xMov > 0) {
-				bool collision = false;
-				int x = rect.x+rect.w+1;
-				for(int y = rect.y; y < rect.y+rect.h; y += tileSize) {
-					if(checkCollision(x,y)) {
-						collision = true;
-						break;
-					}
-				}
-				int y = rect.y+rect.h;
-				if(checkCollision(x,y)) {
-						collision = true;
-				}
-				if(collision) {
-					parent->onCollideRight();
-					break;
-				}
-				else {
+				rect.x--;
+				xMov++;/*
+				if(checkCollision()) {
 					rect.x++;
-					xMov--;
-				}
-			}
-			
-			int yMov = yvel*(double)elapsedTime/1000.0;
-			//up:
-			while(yMov < 0) {
-				bool collision = false;
-				int y = rect.y-1;
-				for(int x = rect.x; x < rect.x+rect.w; x += tileSize) {
-					if(checkCollision(x,y)) {
-						collision = true;
-						break;
-					}
-				}
-				int x = rect.x+rect.w;
-				if(checkCollision(x,y)) {
-						collision = true;
-				}
-				if(collision) {
-					parent->onCollideTop();
+					collidedLeft = true;
 					break;
-				}
-				else {
-					rect.y--;
-					yMov++;
-				}
+				}*/
 			}
-			//down:
-			bool collidedBottom = false;
-			while(yMov > 0) {
-				bool collision = false;
-				int y = rect.y+rect.h+1;
-				for(int x = rect.x; x < rect.x+rect.w; x += tileSize) {
-					if(checkCollision(x,y)) {
-						collision = true;
-						break;
-					}
-				}
-				int x = rect.x+rect.w;
-				if(checkCollision(x,y)) {
-						collision = true;
-				}
-				if(collision) {
-					parent->onCollideBottom();
+		}
+		bool yDown = yMov > 0;
+		while(yMov) {
+			if(yDown) {
+				rect.y++;
+				yMov--;
+				if(checkCollision()) {
+					rect.y--;
 					collidedBottom = true;
 					break;
 				}
-				else {
+			}
+			else {
+				rect.y--;
+				yMov++;
+				if(checkCollision()) {
 					rect.y++;
-					yMov--;
+					collidedTop = true;
+					break;
 				}
 			}
-			if(!collidedBottom) {
-				parent->onNoCollideBottom();
-			}
 		}
-		
-		bool checkCollision(int x, int y) {
-			return map->valueAtPoint(x, y, tileSize) != -1;
-		}
-		
-		void clearYVel() {
-			yvel = 0;
-		}
-		
-		void stop() {
-			xvel = 0;
-		}
-		
-		void jump() {
-			yvel = JUMP_YVEL;
-		}
-		
-		
-	};
+		printf("Collide Left: %d",collidedLeft);
+		printf("Collide Right: %d",collidedRight);
+		printf("Collide Top: %d",collidedTop);
+		printf("Collide Bottom: %d\n",collidedBottom);
+		yvel += secs*gravity;
+		if(yvel > MAX_YVEL)
+			yvel = MAX_YVEL;
+	}
 	
+	bool checkCollision() {/*
+		for(int y = rect.y; y < rect.y+rect.h; y+=tileSize) {
+			for(int x = rect.x; x < rect.x+rect.w; x+=tileSize) {
+				if(map->valueAtPoint(x, y, tileSize) != -1) {
+					printf("Collision at %d, %d with id %d!=-1\n",x,y,map->valueAtPoint(x, y, tileSize));
+					return true;
+				}
+			}
+		}*/
+		if(map->valueAtPoint(rect.x-1, rect.y-1, tileSize) != -1) {
+			collidedLeft = true;
+			collidedTop = true;
+			return true;
+		}
+		if(map->valueAtPoint(rect.x+rect.w+1, rect.y-1, tileSize) != -1) {
+			collidedRight = true;
+			collidedTop = true;
+			return true;
+		}
+		if(map->valueAtPoint(rect.x+rect.w+1, rect.y+rect.h+1, tileSize) != -1) {
+			collidedRight = true;
+			collidedBottom = true;
+			return true;
+		}
+		if(map->valueAtPoint(rect.x-1, rect.y+rect.h+1, tileSize) != -1) {
+			collidedLeft = true;
+			collidedBottom = true;
+			return true;
+		}
+		return false;
+	}
+	
+	void clearYVel() {
+		yvel = 0;
+	}
+	
+	void stop() {
+		xvel = 0;
+	}
+	
+	void jump() {
+		yvel = JUMP_YVEL;
+	}
+	
+	bool didCollideLeft() {
+		bool output = collidedLeft;
+		//collidedLeft = false;
+		return output;
+	}
+	bool didCollideRight() {
+		bool output = collidedRight;
+		//collidedRight = false;
+		return output;
+	}
+	bool didCollideTop() {
+		bool output = collidedTop;
+		//collidedTop = false;
+		return output;
+	}
+	bool didCollideBottom() {
+		bool output = collidedBottom;
+		//collidedBottom= false;
+		return output;
+	}
+};
+
+class Player {
+	private:
 	class PlayerState {
 		protected:
 		std::string filename;
@@ -439,11 +454,9 @@ class Player {
 		//change facing
 		void onLeftDown() {
 			parent->setFacing(0);
-			parent->getCollision()->move(parent->getFacing());
 		}
 		void onRightDown() {
 			parent->setFacing(1);
-			parent->getCollision()->move(parent->getFacing());
 		}
 		//go to sliding
 		void onDownDown() {
@@ -456,17 +469,9 @@ class Player {
 		}
 		//if facing is left, go to standing
 		void onLeftUp() {
-			if(!parent->getFacing()) {
-				parent->setState("standing");
-				parent->getCollision()->stop();
-			}
 		}
 		//if facing is right, go to standing
 		void onRightUp() {
-			if(parent->getFacing()) {
-				parent->setState("standing");
-				parent->getCollision()->stop();
-			}
 		}
 		//do nothing
 		void onDownUp() {
@@ -791,7 +796,7 @@ class Player {
 		delete(running);
 		delete(jumping);
 		delete(gliding);
-		
+		delete(collision);
 	}
 	
 	void changeMap(MapData *newMap, int x, int y, bool facing) {
@@ -844,32 +849,30 @@ class Player {
 	
 	void update() {
 		collision->update();
+		if(currentState != gliding) {
+			if((collision->didCollideLeft() && !rightFacing) || (collision->didCollideRight() && rightFacing)) {
+				currentState->onCollideFront();
+			}
+		}
+		else {
+			if(collision->didCollideLeft() || collision->didCollideRight()) {
+				currentState->onCollideFront();
+			}
+		}
+		if(collision->didCollideTop()) {
+			currentState->onCollideTop();
+		}
+		if(collision->didCollideBottom()) {
+			currentState->onCollideBottom();
+		}
+		else {
+			currentState->onNoCollideBottom();
+		}
+		printf("state: %s\n",currentState->getName().c_str());
 	}
 	
 	SDL_Rect getRect() {
 		return collision->getRect();
-	}
-	
-	void onCollideLeft() {
-		if(!rightFacing){}
-			//currentState->onCollideFront();
-	}
-	
-	void onCollideRight() {
-		if(rightFacing){}
-			//currentState->onCollideFront();
-	}
-	
-	void onCollideTop() {
-		//currentState->onCollideTop();
-	}
-	
-	void onCollideBottom() {
-		//currentState->onCollideBottom();
-	}
-	
-	void onNoCollideBottom() {
-		//currentState->onNoCollideBottom();
 	}
 	
 	void handleInput(SDL_Event event) {

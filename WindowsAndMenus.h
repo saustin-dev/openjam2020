@@ -73,6 +73,10 @@ class Visual {
 	};
 	virtual int click(int mouseX, int mouseY) = 0;
 	virtual std::string onActive() = 0;
+	virtual void update() {
+	}
+	virtual void handleInput(SDL_Event event) {
+	}
 };
 /**
  * Simple class for quick and easy menus
@@ -193,6 +197,12 @@ class Menu : public Visual {
 	
 	std::string onActive() {
 		return activeCommand;
+	}
+	
+	void update() {
+	}
+	
+	void handleEvent(SDL_Event event) {
 	}
 };
 

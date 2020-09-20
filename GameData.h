@@ -46,7 +46,16 @@ class MapData {
 	int getH() {
 		return h;
 	}
+	
+	int valueAtPoint(int x, int y, int tileSize) {
+		if(x < 0 || x > tileSize*w || y < 0 || y > tileSize*h)
+			return -1;
+		//printf("Tile %d,%d = %d\n",x/tileSize,y/tileSize, data[x/tileSize][y/tileSize]);
+		return data[y/tileSize][x/tileSize];
+	}
 };
+
+
 
 /**
  * Command queue for the visuals to pass up higher level commands
