@@ -48,6 +48,40 @@ class MapData {
 	}
 };
 
+/**
+ * Command queue for the visuals to pass up higher level commands
+ */
+class CommandQueue {
+	private:
+	std::vector<std::string> strings;
+	
+	public:
+	CommandQueue() {
+	}
+	~CommandQueue() {
+	}
+	
+	void add(std::string command) {
+		strings.push_back(command);
+	}
+	
+	std::string remove() {
+		if(isEmpty())
+			return nullptr;
+		std::string output = strings.front();
+		strings.erase(strings.begin());
+		return output;
+	}
+	
+	bool isEmpty() {
+		return (size() == 0);
+	}
+	
+	int size() {
+		return strings.size();
+	}
+};
+
 MapData *readFile(std::string filename) {
 	FILE *fp = fopen(filename.c_str(), "r");
 	if(!fp) {

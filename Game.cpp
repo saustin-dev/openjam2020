@@ -5,6 +5,7 @@
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_image.h"
 #include "SDL2/SDL_ttf.h"
+#include "SDL2/SDL_mixer.h"
 #include "WindowAbstraction.h"
 #include "WindowsAndMenus.h"
 #include "GameData.h"
@@ -40,9 +41,10 @@ class GameDrawer : public Visual {
 	SpecificElement *bg;
 	MapData *currentMap;
 	int tileRes;
+	std::string activeCommand;
 	
 	public:
-	GameDrawer(SDL_Renderer *renderer, std::string title, std::string background, SDL_Rect rect, MapData *map, int tileRes) {
+	GameDrawer(SDL_Renderer *renderer, std::string title, std::string background, std::string activeCommand, SDL_Rect rect, MapData *map, int tileRes) {
 		this->title = title;
 		this->tilesetDrawer = new TilesetDrawer("Assets/Image/metroidvania.png",renderer,16);
 		this->tileRes = tileRes;
@@ -77,9 +79,46 @@ class GameDrawer : public Visual {
 			}
 		}
 	}
+	
+	std::string onActive() {
+		return activeCommand;
+	}
+};
+
+class MusicHandler {
+	private:
+	std::string currentSong;
+	Mix_Music *currentMusic;
+	
+	public:
+	MusicHandler() {
+	}
+	~MusicHandler() {
+		stop();
+	}
+	
+	void play(std::string arg) {
+		//printf("Try to play song %s\n",arg.c_str());
+		if(currentSong != arg) {
+			currentSong = arg;
+			currentMusic = Mix_LoadMUS(arg.c_str());
+			if(Mix_PlayMusic(currentMusic, -1) == -1) {
+				printf("Mix_PlayMusic: %s\n", Mix_GetError());
+			}
+		}
+	}
+	
+	void stop() {
+		Mix_HaltMusic();
+		currentSong = "";
+		Mix_FreeMusic(currentMusic);
+	}
 };
 
 class GameWindow : public Window {
+	CommandQueue *queue;
+	MusicHandler *music;
+	
 	public:
 	GameWindow(SDL_Renderer *renderer, SDL_Window *window) {
 		this->window = window;
@@ -88,6 +127,8 @@ class GameWindow : public Window {
 		this->renderer = renderer;
 		activeVisual = nullptr;
 		this->activeTitle = "Main Menu";
+		this->queue = new CommandQueue();
+		this->music = new MusicHandler();
 		
 		build();
 		
@@ -113,17 +154,17 @@ class GameWindow : public Window {
 		
 		//Assemble all the different menus
 		std::string buttons[3] = {"Start Game","Options","Quit"};
-		Menu *mainMenu = new Menu(renderer, "Main Menu", "Assets/Image/space bg 3.bmp",3, buttons, 1, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *mainMenu = new Menu(renderer, "Main Menu", "Assets/Image/space bg 3.bmp", "play Assets/Sound/test.ogg", 3, buttons, 1, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(mainMenu);
 		std::string buttons2[4] = {"Fullscreen","Switch Resolution","Switch Ratio", "Go Back"};
-		Menu *optionsMenu = new Menu(renderer, "Options", "Assets/Image/space bg 3.bmp",4, buttons2, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *optionsMenu = new Menu(renderer, "Options", "Assets/Image/space bg 3.bmp", "stop", 4, buttons2, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(optionsMenu);
 		
 		std::string buttons3[3] = {"New Game","Load Game","Go Back"};
-		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/space bg 3.bmp",3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/space bg 3.bmp", "stop", 3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(fileMenu);
 		
-		GameDrawer *drawer = new GameDrawer(renderer,"Game","Assets/Image/space bg 3.bmp", {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},readFile("Data/Maps/TestMap.map"),32);
+		GameDrawer *drawer = new GameDrawer(renderer,"Game","Assets/Image/space bg 3.bmp", "stop", {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},readFile("Data/Maps/TestMap.map"),32);
 		visuals.push_back(drawer);
 		
 		changeVisual(activeTitle);
@@ -141,9 +182,31 @@ class GameWindow : public Window {
 		for(unsigned int i = 0; i < visuals.size(); i++) {
 			if(visuals.at(i)->getTitle() == title) {
 				activeVisual = visuals.at(i);
+				queue->add(activeVisual->onActive());
 				activeTitle = title;
 				break;
 			}
+		}
+	}
+	
+	void parseQueue() {
+		while(!queue->isEmpty()) {
+			std::string currentCommand = queue->remove();
+			parseCommand(currentCommand);
+		}
+	}
+	
+	void parseCommand(std::string command) {
+		std::string base = command.substr(0,command.find(' ',0));
+		std::string arg = command.substr(command.find(' ',0)+1,command.length()-command.find(' ',0));
+		if(base == "play") {
+			music->play(arg);
+		}
+		else if(base == "stop") {
+			music->stop();
+		}
+		else {
+			//printf("Unknown command '%s'\n",base.c_str());
 		}
 	}
 	
@@ -227,9 +290,11 @@ class GameWindow : public Window {
 //-------------------------------------------------------------------------
 int main() {
 	//start SDL
-	SDL_Init(0);
+	SDL_Init(SDL_INIT_AUDIO);
 	IMG_Init(IMG_INIT_PNG);
 	TTF_Init();
+	Mix_Init(MIX_INIT_MP3|MIX_INIT_OGG);
+	Mix_OpenAudio(44100,MIX_DEFAULT_FORMAT,2,2048);
 	SDL_Window *window = SDL_CreateWindow(WINDOW_TITLE.c_str(),SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,SCREEN_WIDTH,SCREEN_HEIGHT,0);
 	SDL_SetWindowResizable(window,SDL_TRUE);
 	SDL_Renderer *renderer  = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
@@ -244,6 +309,7 @@ int main() {
 			SDL_GetMouseState(&mouseX, &mouseY);
 			gameWindow->handleEvent(event);
 		}
+		gameWindow->parseQueue();
 		gameWindow->draw();
 		SDL_RenderPresent(renderer);
 	}
@@ -251,6 +317,10 @@ int main() {
 	//quit SDL
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
+	IMG_Quit();
+	TTF_Quit();
+	Mix_CloseAudio();
+	Mix_Quit();
 	SDL_Quit();
 
 	//garbage collect

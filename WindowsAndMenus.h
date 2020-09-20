@@ -72,6 +72,7 @@ class Visual {
 	virtual void hover(int mouseX, int mouseY) {
 	};
 	virtual int click(int mouseX, int mouseY) = 0;
+	virtual std::string onActive() = 0;
 };
 /**
  * Simple class for quick and easy menus
@@ -88,9 +89,10 @@ class Menu : public Visual {
 	std::vector<std::string> buttonLabels;
 	int SCREEN_WIDTH;
 	int SCREEN_HEIGHT;
+	std::string activeCommand;
 	
 	public:
-	Menu(SDL_Renderer *renderer, std::string title, std::string background, int buttons, std::string buttonLabels[], int side, int screenWidth, int screenHeight) {
+	Menu(SDL_Renderer *renderer, std::string title, std::string background, std::string activeCommand, int buttons, std::string buttonLabels[], int side, int screenWidth, int screenHeight) {
 		this->renderer = renderer;
 		this->title = title;
 		this->background = background;
@@ -101,6 +103,7 @@ class Menu : public Visual {
 		this->side = side;
 		this->SCREEN_WIDTH = screenWidth;
 		this->SCREEN_HEIGHT = screenHeight;
+		this->activeCommand = activeCommand;
 		
 		build();
 	}
@@ -187,7 +190,10 @@ class Menu : public Visual {
 			buttonVector.at(i)->draw();
 		}
 	}
-		
+	
+	std::string onActive() {
+		return activeCommand;
+	}
 };
 
 
