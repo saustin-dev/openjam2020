@@ -15,15 +15,19 @@
 /**
  * Size of player in pixels
  */
-int const WIDTH = 32;
-int const HEIGHT = 32;
+int const WIDTH = 75;
+int const HEIGHT = 100;
 /**
  * Constants for speed and such
  */
 int const GRAVITY = 300;
 int const RUN_SPEED = 300;
 int const MAX_YVEL = 1000;
-int const JUMP_YVEL = -300;
+int const JUMP_YVEL = -500;
+
+bool leftDown;
+bool rightDown;
+bool downDown;
 
 std::string const SPRITE_DIRECTORY = "Assets/Image/";
 
@@ -47,6 +51,7 @@ class Player {
 			yvel = 0;
 			gravity = 0;
 			this->tileSize = tileSize;
+			this->parent = parent;
 		}
 		~PlayerCollider() {
 		}
@@ -60,9 +65,12 @@ class Player {
 			this->map = map;
 		}
 		
-		void setGravity(bool grav) {
-			if(grav) {
+		void setGravity(int grav) {
+			if(grav > 0) {
 				gravity = GRAVITY;
+			}
+			else if(grav < 0) {
+				gravity = GRAVITY/2;
 			}
 			else {
 				gravity = 0;
@@ -156,7 +164,7 @@ class Player {
 			}
 			//down:
 			bool collidedBottom = false;
-			while(yMov > 0) {
+			while(yMov >= 0) {
 				bool collision = false;
 				int y = rect.y+rect.h+1;
 				for(int x = rect.x; x < rect.x+rect.w; x += tileSize) {
@@ -199,8 +207,6 @@ class Player {
 		void jump() {
 			yvel = JUMP_YVEL;
 		}
-		
-		
 	};
 	
 	class PlayerState {
@@ -214,6 +220,8 @@ class Player {
 		Player *parent;
 		
 		public:
+		PlayerState() {
+		};
 		virtual ~PlayerState() {
 		};
 		
@@ -245,21 +253,26 @@ class Player {
 		}
 		virtual void onCollideTop() {
 		}
-		virtual void onCollideBottom() {
-		}
+		virtual void onCollideBottom() = 0;
 		virtual void onNoCollideBottom() {
 		}
 		virtual void onLeftDown() {
+			leftDown = true;
 		}
 		virtual void onRightDown() {
+			rightDown = true;
 		}
 		virtual void onDownDown() {
+			downDown = true;
 		}
 		virtual void onLeftUp() {
+			leftDown = false;
 		}
 		virtual void onRightUp() {
+			rightDown = false;
 		}
 		virtual void onDownUp() {
+			downDown = false;
 		}
 		virtual void onJump() {
 		}
@@ -488,8 +501,6 @@ class Player {
 		unsigned int slideDuration;
 		//is the directional button held down?
 		bool holdingDButton;
-		//is the slide button held down?
-		bool holdingSButton;
 		
 		public:
 		SlidingState(SDL_Renderer *renderer, Player *parent) {
@@ -515,7 +526,7 @@ class Player {
 		
 		//go to crouching or standing
 		void onCollideFront() {
-			if(holdingSButton)
+			if(downDown)
 				parent->setState("crouching");
 			else
 				parent->setState("standing");
@@ -539,9 +550,7 @@ class Player {
 			if(parent->getFacing())
 				holdingDButton = true;
 		}
-		//set holdingSButton to true
 		void onDownDown() {
-			holdingSButton = true;
 		}
 		//do nothing
 		void onJump() {
@@ -556,9 +565,7 @@ class Player {
 			if(parent->getFacing())
 				holdingDButton = false;
 		}
-		//set holdingSButton to false
 		void onDownUp() {
-			holdingSButton = false;
 		}
 		
 		//move, check if slide time has elapsed and if so switch to running, standing, or crouching
@@ -566,7 +573,7 @@ class Player {
 			parent->getCollision()->move(parent->getFacing());
 			if(SDL_GetTicks() > slideBeginTime + slideDuration) {
 				if(!holdingDButton) {
-					if(holdingSButton) {
+					if(downDown) {
 						parent->setState("crouching");
 					}
 					else {
@@ -581,8 +588,6 @@ class Player {
 		//record current time, set holdingD/SButton to true
 		void onActive() {
 			slideBeginTime = SDL_GetTicks();
-			holdingDButton = true;
-			holdingSButton = true;
 			parent->getCollision()->move(parent->getFacing());
 		}
 	};
@@ -621,6 +626,7 @@ class Player {
 		}
 		//go to standing or running
 		void onCollideBottom() {
+			SDL_PumpEvents();
 			Uint8 const *state = SDL_GetKeyboardState(NULL);
 			if(state[SDL_SCANCODE_D]) {
 				if(state[SDL_SCANCODE_A]) {
@@ -673,10 +679,6 @@ class Player {
 		}
 	};
 	class GlidingState : public PlayerState {
-		private:
-		bool leftDown;
-		bool rightDown;
-		
 		public:
 		GlidingState(SDL_Renderer *renderer, Player *parent) {
 			filename = "gliding";
@@ -709,12 +711,12 @@ class Player {
 		//go to standing or running
 		void onCollideBottom() {
 			if(rightDown && !leftDown) {
-				parent->setState("running");
 				parent->setFacing(1);
+				parent->setState("running");
 			}
 			else if(!rightDown && leftDown) {
-				parent->setState("running");
 				parent->setFacing(0);
+				parent->setState("running");
 			}
 			else {
 				parent->setState("standing");
@@ -723,37 +725,45 @@ class Player {
 		//do nothing
 		void onNoCollideBottom() {
 		}
+		//strafe
 		void onLeftDown() {
-			leftDown = true;
+			if(!rightDown)
+				parent->getCollision()->move(0);
 		}
 		void onRightDown() {
-			rightDown = true;
+			if(!leftDown)
+				parent->getCollision()->move(1);
 		}
 		void onDownDown() {
 		}
 		void onJump() {
 		}
-		//do nothing
+		//stop strafing
 		void onLeftUp() {
-			leftDown = false;
+			if(!rightDown)
+				parent->getCollision()->stop();
 		}
 		void onRightUp() {
-			rightDown = false;
+			if(!leftDown)
+				parent->getCollision()->stop();
 		}
 		void onDownUp() {
 		}
 		
 		//apply gravity, change x-vel based on down keys
 		void onUpdate() {
-			parent->getCollision()->setGravity(1);
+			parent->getCollision()->setGravity(-1);
 			if(rightDown && !leftDown)
 				parent->getCollision()->move(1);
 			else if(leftDown && !rightDown)
 				parent->getCollision()->move(0);
+			else
+				parent->getCollision()->stop();
 		}
 		//get what direction keys are down
 		void onActive() {
-			parent->getCollision()->setGravity(1);
+			parent->getCollision()->setGravity(-1);
+			SDL_PumpEvents();
 			Uint8 const *state = SDL_GetKeyboardState(NULL);
 			rightDown = state[SDL_SCANCODE_D];
 			leftDown = state[SDL_SCANCODE_A];
@@ -852,24 +862,26 @@ class Player {
 	
 	void onCollideLeft() {
 		if(!rightFacing){}
-			//currentState->onCollideFront();
+			currentState->onCollideFront();
 	}
 	
 	void onCollideRight() {
 		if(rightFacing){}
-			//currentState->onCollideFront();
+			currentState->onCollideFront();
 	}
 	
 	void onCollideTop() {
-		//currentState->onCollideTop();
+		currentState->onCollideTop();
 	}
 	
 	void onCollideBottom() {
-		//currentState->onCollideBottom();
+		//printf("%s + bottom\n", currentState->getName().c_str());
+		currentState->onCollideBottom();
 	}
 	
 	void onNoCollideBottom() {
-		//currentState->onNoCollideBottom();
+		//printf("%s + nobottom\n", currentState->getName().c_str());
+		currentState->onNoCollideBottom();
 	}
 	
 	void handleInput(SDL_Event event) {
@@ -892,12 +904,14 @@ class Player {
 		else if(event.type == SDL_KEYUP) {
 			switch(event.key.keysym.sym) {
 				case SDLK_a:
+					currentState->PlayerState::onLeftUp();
 					currentState->onLeftUp();
 					break;
 				case SDLK_s:
 					currentState->onDownUp();
 					break;
 				case SDLK_d:
+					currentState->PlayerState::onRightUp();
 					currentState->onRightUp();
 					break;
 			}

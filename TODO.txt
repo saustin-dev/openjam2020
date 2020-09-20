@@ -1,6 +1,4 @@
 To-Do:
-*Fix segfaults on calling Player.onCollide_() functions
-*Make rest of sprites
-*Test collision and finish that
 *Implement loading and switching between levels
+*Add proper camera
 *Design levels and music
