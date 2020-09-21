@@ -3,3 +3,4 @@ LevelEditor
 *.gch
 *.sav
 a
+*.o
