@@ -149,6 +149,7 @@ class TilesetDrawer {
 		src.x = x*squareSide;
 		src.y = y*squareSide;
 		SDL_RenderCopy(renderer,texture,&src,&rect);
+		//printf("drawing %d at %d,%d (%d x %d)\n",index,rect.x,rect.y,rect.w,rect.h);
 	}
 	
 	int tileCount() {

@@ -32,8 +32,10 @@ std::string WINDOW_TITLE = "Game Window";
  */
 int const X_RESOLUTIONS[2][3] = { { 640, 1024, 1200 }, { 720, 1280, 1600 } };
 int const Y_RESOLUTIONS[2][3] = { { 480, 768, 900 }, { 480, 720, 900 } };
+int const FULLSCREEN_OPTIONS[3] = { 0, SDL_WINDOW_FULLSCREEN, SDL_WINDOW_FULLSCREEN_DESKTOP };
 int ratio = 1;
-int res = 1;
+int res = 0;
+int fullscreen = 0;
 
 
 
@@ -71,6 +73,9 @@ class MusicHandler {
 class GameWindow : public Window {
 	CommandQueue *queue;
 	MusicHandler *music;
+	GameObject *object;
+	LevelState *levelState;
+	std::string backTitle;
 	
 	public:
 	GameWindow(SDL_Renderer *renderer, SDL_Window *window) {
@@ -82,12 +87,16 @@ class GameWindow : public Window {
 		this->activeTitle = "Main Menu";
 		this->queue = new CommandQueue();
 		this->music = new MusicHandler();
+		backTitle = "Main Menu";
+		levelState = new LevelState("Data/savedata.sav");
+		object = new GameObject(renderer, queue, levelState, 32, SCREEN_WIDTH, SCREEN_HEIGHT);
 		
 		build();
 		
 	}
 	~GameWindow() {
 		destroy();
+		delete(levelState);
 	}
 	
 	void destroy() {
@@ -114,13 +123,21 @@ class GameWindow : public Window {
 		visuals.push_back(optionsMenu);
 		
 		std::string buttons3[3] = {"New Game","Load Game","Go Back"};
+		if(!levelState->doesFileExist())
+			buttons3[1] = "<No Data>";
 		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/Interlude.ogg", 3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(fileMenu);
 		
-		GameDrawer *drawer = new GameDrawer(renderer,"Game","Assets/Image/Clouds 1.bmp", "play Assets/Sound/JourneyAhead.ogg", {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},readFile("Data/Maps/TestMap.map"),64);
-		visuals.push_back(drawer);
+		std::string buttons4[3] = {"Resume","Options","Main Menu"};
+		Menu *pauseMenu = new Menu(renderer, "Pause", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/Interlude.ogg", 3, buttons4, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		visuals.push_back(pauseMenu);
 		
-		changeVisual(activeTitle);
+		//GameDrawer *drawer = new GameDrawer(renderer,"Game","Assets/Image/Clouds 1.bmp", "play Assets/Sound/JourneyAhead.ogg", {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},readFile("Data/Maps/TestMap.map"),64);
+		//visuals.push_back(drawer);
+		visuals.push_back(object);
+		object->resize(SCREEN_WIDTH, SCREEN_HEIGHT);
+		
+		changeVisual(activeTitle, 1);
 	}
 	
 	void resize(int width, int height) {
@@ -131,15 +148,21 @@ class GameWindow : public Window {
 		build();
 	}
 	
-	void changeVisual(std::string title) {
+	void changeVisual(std::string title, bool building) {
 		for(unsigned int i = 0; i < visuals.size(); i++) {
 			if(visuals.at(i)->getTitle() == title) {
 				activeVisual = visuals.at(i);
 				queue->add(activeVisual->onActive());
+				if(!building)
+					backTitle = activeTitle;
 				activeTitle = title;
 				break;
 			}
 		}
+	}
+	
+	void changeVisual(std::string title) {
+		changeVisual(title, 0);
 	}
 	
 	void parseQueue() {
@@ -159,7 +182,7 @@ class GameWindow : public Window {
 			music->stop();
 		}
 		else {
-			//printf("Unknown command '%s'\n",base.c_str());
+			printf("Unknown command '%s'\n",base.c_str());
 		}
 	}
 	
@@ -190,6 +213,9 @@ class GameWindow : public Window {
 				switch (clicked) {
 					case 0:
 						//Fullscreen
+						fullscreen++;
+						if(fullscreen > 2) fullscreen = 0;
+						SDL_SetWindowFullscreen(window,FULLSCREEN_OPTIONS[fullscreen]);
 						break;
 					case 1:
 						//Change resolution
@@ -204,7 +230,7 @@ class GameWindow : public Window {
 						resize(X_RESOLUTIONS[ratio][res],Y_RESOLUTIONS[ratio][res]);
 						break;
 					case 3:
-						changeVisual("Main Menu");
+						changeVisual(backTitle);
 						break;
 				}
 			}
@@ -212,12 +238,39 @@ class GameWindow : public Window {
 				switch (clicked) {
 					case 0:
 						//New game
+						levelState->deleteSave();
+						object->reloadState();
+						object->reset();
 						changeVisual("Game");
 						break;
 					case 1:
 						//Load game
+						if(!levelState->doesFileExist())
+							break;
+						object->reloadState();
+						object->reset();
+						changeVisual("Game");
 						break;
 					case 2:
+						changeVisual("Main Menu");
+						break;
+				}
+			}
+			else if(activeVisual->getTitle() == "Pause") {
+				switch (clicked) {
+					case 0:
+						//Resume game
+						changeVisual("Game");
+						break;
+					case 1:
+						//Go to options
+						changeVisual("Options");
+						break;
+					case 2:
+						//Save data first
+						levelState->save();
+						build();
+						//Return to main menu
 						changeVisual("Main Menu");
 						break;
 				}
@@ -226,7 +279,13 @@ class GameWindow : public Window {
 		//Keys matter
 		else if(event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
 			if(activeVisual->getTitle() == "Game") {
-				activeVisual->handleInput(event);
+				if(event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+					//go to pause menu
+					changeVisual("Pause");
+				}
+				else {
+					activeVisual->handleInput(event);
+				}
 			}
 		}
 		if(event.type == SDL_WINDOWEVENT) {

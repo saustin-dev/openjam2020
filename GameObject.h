@@ -11,6 +11,7 @@
 #include "GameData.h"
 #include "PlayerLogic.h"
 #include "LevelInfo.h"
+#include "LevelState.h"
 
 #ifndef GAMEOBJECT_H
 #define GAMEOBJECT_H
@@ -24,6 +25,7 @@ class GameLevel {
 	std::string bg;
 	std::string musicCommand;
 	std::string tileset;
+	int tileSize;
 	TilesetDrawer *tilesetDrawer;
 	//command system will be used to go from one level to another
 	std::string leftCommand;
@@ -48,7 +50,8 @@ class GameLevel {
 		this->upCommand = upCommand;
 		this->downCommand = downCommand;
 		this->tileset = tileset;
-		this->tilesetDrawer = new TilesetDrawer(tileset, renderer, tileSize);
+		this->tileSize = tileSize;
+		this->tilesetDrawer = new TilesetDrawer(tileset, renderer, TILESIZE);
 		leftCoords[0] = startCoords[0][0];
 		leftCoords[1] = startCoords[0][1];
 		rightCoords[0] = startCoords[1][0];
@@ -58,7 +61,12 @@ class GameLevel {
 		downCoords[0] = startCoords[3][0];
 		downCoords[1] = startCoords[3][1];
 		data = readFile(filename);
+		//printf("Load BG image '%s': ",bg.c_str());
 		SDL_Surface *bgSurface = IMG_Load(bg.c_str());
+		/*if(!bgSurface)
+			printf("%s\n",SDL_GetError());
+		else
+			printf("Success\n");*/
 		bgTex = SDL_CreateTextureFromSurface(renderer, bgSurface);
 		SDL_FreeSurface(bgSurface);
 	}
@@ -81,15 +89,15 @@ class GameLevel {
 		return this->upCommand;
 	}
 	std::string getDown() {
-		return this->leftCommand;
+		return this->downCommand;
 	}
 	
-	int tileSize() {
-		return tilesetDrawer->tileSize();
+	int getTileSize() {
+		return tileSize;
 	}
 	
 	void setTileSize(int tileSize) {
-		tilesetDrawer->setTileSize(tileSize);
+		this->tileSize = tileSize;
 	}
 	
 	MapData *getData() {
@@ -104,32 +112,64 @@ class GameLevel {
 	 * Load the level by taking the player and setting them, then return music command
 	 */
 	std::string load(Player* player, int side) {
+		//printf("Loading into level %s with left coords %d,%d\n", filename.c_str(),leftCoords[0],leftCoords[1]);
 		if(side == 0) {
-			player->changeMap(data,tileSize()*leftCoords[0],tileSize()*leftCoords[1],1);
+			player->changeMap(data,tileSize*leftCoords[0],tileSize*leftCoords[1],1);
 		}
 		else if(side == 1) {
-			player->changeMap(data,tileSize()*rightCoords[0],tileSize()*rightCoords[1],0);
+			player->changeMap(data,tileSize*rightCoords[0],tileSize*rightCoords[1],0);
 		}
 		else if(side == 2) {
-			player->changeMap(data,tileSize()*upCoords[0],tileSize()*rightCoords[1],0);
+			player->changeMap(data,tileSize*upCoords[0],tileSize*upCoords[1],0);
 		}
 		else if(side == 3) {
-			player->changeMap(data,tileSize()*downCoords[0],tileSize()*rightCoords[1],1);
+			player->changeMap(data,tileSize*downCoords[0],tileSize*upCoords[1],1);
 		}
 		
-		return musicCommand;
+		return "play " + musicCommand;
 	}
 	
 	void draw(Player *player, int width, int height) {
 		//first the background
 		SDL_RenderCopy(renderer, bgTex, NULL, NULL);
 		
-		//then the map
-		SDL_Rect playerRect = player->getRect();
-		int centerX = playerRect.x + playerRect.w/2;
-		int centerY = playerRect.y + playerRect.h/2;
+		//get the center of where we're drawing
+		SDL_Rect rect = player->getRect();
+		int centerX = rect.x + rect.w/2;
+		int centerY = rect.y + rect.h/2;
+		//where the player will be drawn as percent of screen
+		double screenPercentX = 0.5;
+		double screenPercentY = 0.5;
+		//check if this would show out of bounds and correct if so
+		if(screenPercentX*width - centerX >= 0) {
+			screenPercentX = (double)(centerX%width)/width;
+		}
+		else if(screenPercentX*width + centerX >= tileSize*data->getW()) {
+			screenPercentX = 1.0-(double)(tileSize*data->getW() - centerX)/width;
+		}
+		if(screenPercentY*height - centerY >= 0) {
+			screenPercentY = (double)(centerY%height)/height;
+		}
+		else if(screenPercentY*height + centerY >= tileSize*data->getH()) {
+			screenPercentY= 1.0-(double)(tileSize*data->getH() - centerY)/height;
+		}
+		//offset drawing everything so that centerX = width/2 and centerY = height/2
+		int offX = width*screenPercentX - centerX;
+		int offY = height*screenPercentY - centerY;
 		
-		//then the player
+		int w = data->getW();
+		int h = data->getH();
+		int **dataArr = data->getData();
+		for(int y = 0; y < h; y++) {
+			for(int x = 0; x < w; x++) {
+				tilesetDrawer->draw({offX+tileSize*x,offY+tileSize*y,tileSize,tileSize},dataArr[y][x]);
+			}
+		}
+		
+		rect.x += offX;
+		rect.y += offY;
+		player->draw(rect);
+		//printf("Player: { %d, %d, %d, %d }\n", player->getRect().x,player->getRect().y,player->getRect().w,player->getRect().h);
 	}
 };
 
@@ -144,32 +184,50 @@ class GameObject : public Visual {
 	Player *player;
 	//has a reference to the window command queue in order to push songs up
 	CommandQueue *windowCommandQueue;
+	int lastSide;
+	//keep a pointer to the save manager so it can modify state
+	LevelState *levelState;
 	
 	public:
-	GameObject(SDL_Renderer *renderer, CommandQueue *queuePtr, int tileSize, int width, int height, int levelIndex, int side) {
+	GameObject(SDL_Renderer *renderer, CommandQueue *queuePtr, LevelState *levelState,  int tileSize, int width, int height) {
 		//load up all the levels
 		for(int i = 0; i < LEVEL_COUNT; i++) {
+			//printf("Loaded level #%d with left start coords %d,%d\n",i,START_COORDS[i][0][0],START_COORDS[i][0][1]);
 			levels.push_back(new GameLevel(renderer,FILENAMES[i],BACKGROUNDS[i],TILESET,tileSize,MUSIC_NAMES[i],START_COORDS[i],
 								ADJACENT_MAPS[i][0],ADJACENT_MAPS[i][1],ADJACENT_MAPS[i][2],ADJACENT_MAPS[i][3]));
 		}
-		currentLevel = levels.at(levelIndex);
+		this->levelState = levelState;
+		reloadState();
 		//construct the player
 		player = new Player(renderer, 0, 0, nullptr, tileSize);
 		//load player into level
-		currentLevel->load(player, side);
+		
+		currentLevel->load(player, lastSide);
+		
 		windowCommandQueue = queuePtr;
 	}
-	GameObject(SDL_Renderer *renderer, CommandQueue *queuePtr, int tileSize, int width, int height) : GameObject { renderer, queuePtr, tileSize, width, height, 0, 0 } {
-	};
+	~GameObject() {
+		while(levels.size()) {
+			if(levels.back()) delete(levels.back());
+			levels.pop_back();
+		}
+		delete(player);
+	}
 	
 	std::string getTitle() {
 		return "Game";
+	}
+	
+	void reloadState() {
+		currentLevel = levels.at(levelState->getIndex());
+		lastSide = levelState->getSide();
 	}
 	
 	bool switchLevel(std::string filename) {
 		for(unsigned int i = 0; i<levels.size(); i++) {
 			if(levels.at(i)->getFilename() == filename) {
 				currentLevel = levels.at(i);
+				levelState->setIndex(i);
 				return true;
 			}
 		}
@@ -179,37 +237,52 @@ class GameObject : public Visual {
 	//see if the player has moved out of bounds and if so attempt to change level
 	void checkBounds() {
 		SDL_Rect playerRect = player->getRect();
-		int w = currentLevel->getData()->getW() * currentLevel->tileSize();
-		int h = currentLevel->getData()->getH() * currentLevel->tileSize();
+		int w = currentLevel->getData()->getW() * currentLevel->getTileSize();
+		int h = currentLevel->getData()->getH() * currentLevel->getTileSize();
 		//out of bounds by left of screen
 		if(playerRect.x + playerRect.w < 0) {
 			if(switchLevel(currentLevel->getLeft())) {
+				lastSide = 1;
+				levelState->setSide(lastSide);
 				windowCommandQueue->add(currentLevel->load(player,1));
 			}
-			return;
 		}
 		//out of bounds by right of screen
-		if(playerRect.x - playerRect.w > w) {
+		if(playerRect.x > w) {
 			if(switchLevel(currentLevel->getRight())) {
+				lastSide = 0;
+				levelState->setSide(lastSide);
 				windowCommandQueue->add(currentLevel->load(player,0));
 			}
-			return;
 		}
 		//out of bounds by top of screen
 		if(playerRect.y + playerRect.h < 0) {
 			if(switchLevel(currentLevel->getUp())) {
+				lastSide = 3;
+				levelState->setSide(lastSide);
 				windowCommandQueue->add(currentLevel->load(player,3));
 			}
 			return;
 		}
 		//out of bounds by bottom of screen
-		if(playerRect.y - playerRect.h > h) {
+		if(playerRect.y > h) {
 			if(switchLevel(currentLevel->getDown())) {
+				lastSide = 2;
+				levelState->setSide(lastSide);
 				windowCommandQueue->add(currentLevel->load(player,2));
+			}
+			else {
+				//if you go out of bounds by the bottom and don't switch into another level, reset
+				if(playerRect.y > h + 200) {
+					reset();
+				}
 			}
 			return;
 		}
-		
+	}
+	void reset() {
+		currentLevel->load(player,lastSide);
+		player->setState("standing");
 	}
 	void update() {
 		//update the player
@@ -224,9 +297,13 @@ class GameObject : public Visual {
 		//draw the current level, then draw the player
 		currentLevel->draw(player, width, height);
 	}
+	void resize(int width, int height) {
+		this->width = width;
+		this->height = height;
+	}
 	
 	std::string onActive() {
-		return currentLevel->getMusicCommand();
+		return "play " + currentLevel->getMusicCommand();
 	}
 	
 	//empty virtual functions from visual

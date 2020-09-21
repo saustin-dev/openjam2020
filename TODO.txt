@@ -1,8 +1,8 @@
 To-Do:
-*Complete draw function in GameLevel
-*Finish GameObject
-*Add a pause menu
-*Add a save system: every time a level is loaded save the last loaded level index and side
-*Add ability to load save
-*Make fullscreen button work
+*Fix pausing still tracking movement
+*Add some acceleration in air for jumping
+*Fine tune movement to be better
+
+*Beautify the game (find better backgrounds, font)
+*Add enemies???
 *Design levels
