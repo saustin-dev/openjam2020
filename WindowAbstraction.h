@@ -160,6 +160,10 @@ class TilesetDrawer {
 	int tileSize() {
 		return squareSide;
 	}
+	
+	void setTileSize(int tileSize) {
+		squareSide = tileSize;
+	}
 };
 
 //Window Elements

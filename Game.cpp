@@ -10,6 +10,7 @@
 #include "WindowsAndMenus.h"
 #include "GameData.h"
 #include "PlayerLogic.h"
+#include "GameObject.h"
 
 /**
  * Store the coordinates of the mouse pointer
@@ -34,69 +35,7 @@ int const Y_RESOLUTIONS[2][3] = { { 480, 768, 900 }, { 480, 720, 900 } };
 int ratio = 1;
 int res = 1;
 
-class GameDrawer : public Visual {
-	private:
-	std::string title;
-	SDL_Renderer *renderer;
-	TilesetDrawer *tilesetDrawer;
-	SpecificElement *bg;
-	MapData *currentMap;
-	int tileRes;
-	std::string activeCommand;
-	Player *player;
-	
-	public:
-	GameDrawer(SDL_Renderer *renderer, std::string title, std::string background, std::string activeCommand, SDL_Rect rect, MapData *map, int tileRes) {
-		this->title = title;
-		this->tilesetDrawer = new TilesetDrawer("Assets/Image/metroidvania.png",renderer,16);
-		this->tileRes = tileRes;
-		this->currentMap = map;
-		this->bg = new SpecificElement(new ImageTile(background, renderer), rect);
-		this->player = new Player(renderer, 0, 0, map, tileRes);
-	}
-	~GameDrawer() {
-		delete(tilesetDrawer);
-		delete(bg);
-	}
-	
-	std::string getTitle() {
-		return this->title;
-	}
-	
-	void hover(int mouseX, int mouseY) {
-	}
-	int click(int mouseX, int mouseY) {
-		return -1;
-	}
-	
-	void draw() {
-		bg->draw();
-		int offX = 0;
-		int offY = 0;
-		int w = currentMap->getW();
-		int h = currentMap->getH();
-		int **data = currentMap->getData();
-		for(int y = 0; y < h; y++) {
-			for(int x = 0; x < w; x++) {
-				tilesetDrawer->draw({offX+tileRes*x,offY+tileRes*y,tileRes,tileRes},data[y][x]);
-			}
-		}
-		player->draw(player->getRect());
-	}
-	
-	std::string onActive() {
-		return activeCommand;
-	}
-	
-	void update() {
-		player->update();
-		//printf("%d,%d,%d,%d\n",player->getRect().x,player->getRect().y,player->getRect().w,player->getRect().h);
-	}
-	
-	void handleInput(SDL_Event event) {
-		player->handleInput(event);
-	}
-};
+
 
 class MusicHandler {
 	private:
@@ -168,17 +107,17 @@ class GameWindow : public Window {
 		
 		//Assemble all the different menus
 		std::string buttons[3] = {"Start Game","Options","Quit"};
-		Menu *mainMenu = new Menu(renderer, "Main Menu", "Assets/Image/space bg 3.bmp", "play Assets/Sound/test.ogg", 3, buttons, 1, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *mainMenu = new Menu(renderer, "Main Menu", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/test.ogg", 3, buttons, 1, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(mainMenu);
 		std::string buttons2[4] = {"Fullscreen","Switch Resolution","Switch Ratio", "Go Back"};
-		Menu *optionsMenu = new Menu(renderer, "Options", "Assets/Image/space bg 3.bmp", "stop", 4, buttons2, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *optionsMenu = new Menu(renderer, "Options", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/Interlude.ogg", 4, buttons2, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(optionsMenu);
 		
 		std::string buttons3[3] = {"New Game","Load Game","Go Back"};
-		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/space bg 3.bmp", "stop", 3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/Interlude.ogg", 3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(fileMenu);
 		
-		GameDrawer *drawer = new GameDrawer(renderer,"Game","Assets/Image/space bg 3.bmp", "stop", {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},readFile("Data/Maps/TestMap.map"),32);
+		GameDrawer *drawer = new GameDrawer(renderer,"Game","Assets/Image/Clouds 1.bmp", "play Assets/Sound/JourneyAhead.ogg", {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},readFile("Data/Maps/TestMap.map"),64);
 		visuals.push_back(drawer);
 		
 		changeVisual(activeTitle);

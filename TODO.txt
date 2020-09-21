@@ -1,4 +1,8 @@
 To-Do:
-*Implement loading and switching between levels
-*Add proper camera
-*Design levels and music
+*Complete draw function in GameLevel
+*Finish GameObject
+*Add a pause menu
+*Add a save system: every time a level is loaded save the last loaded level index and side
+*Add ability to load save
+*Make fullscreen button work
+*Design levels

@@ -17,6 +17,7 @@
  */
 int const WIDTH = 75;
 int const HEIGHT = 100;
+int const RELATIVE_TILESIZE = 32;
 /**
  * Constants for speed and such
  */
@@ -29,7 +30,7 @@ bool leftDown;
 bool rightDown;
 bool downDown;
 
-std::string const SPRITE_DIRECTORY = "Assets/Image/";
+std::string const SPRITE_DIRECTORY = "Assets/Image/Character/";
 
 class Player {
 	private:
@@ -43,14 +44,15 @@ class Player {
 		unsigned int lastTime;
 		MapData *map;
 		int tileSize;
+		double factor;
 		
 		public:
 		PlayerCollider(int xpos, int ypos, Player *parent, MapData *map, int tileSize) {
-			changeMap(map, xpos, ypos);
 			xvel = 0;
 			yvel = 0;
 			gravity = 0;
-			this->tileSize = tileSize;
+			changeTileSize(tileSize);
+			changeMap(map, xpos, ypos);
 			this->parent = parent;
 		}
 		~PlayerCollider() {
@@ -60,8 +62,18 @@ class Player {
 			return rect;
 		}
 		
+		void updateFactor() {
+			factor = tileSize / RELATIVE_TILESIZE;
+		}
+		
+		void changeTileSize(int tileSize) {
+			this->tileSize = tileSize;
+			updateFactor();
+			rect = { rect.x, rect.y, (int)(WIDTH * factor), (int)(HEIGHT * factor) };
+		}
+		
 		void changeMap(MapData *map, int x, int y) {
-			rect = { x, y, WIDTH, HEIGHT };
+			rect = { x, y, (int)(WIDTH * factor), (int)(HEIGHT * factor) };
 			this->map = map;
 		}
 		
@@ -90,7 +102,7 @@ class Player {
 			//check collision, move if possible, and if collided tell parent state
 			yvel += gravity*(double)elapsedTime/1000.0;
 			
-			int xMov = xvel*(double)elapsedTime/1000.0;
+			int xMov = factor*xvel*(double)elapsedTime/1000.0;
 			//left:
 			while(xMov < 0) {
 				bool collision = false;
@@ -138,7 +150,7 @@ class Player {
 				}
 			}
 			
-			int yMov = yvel*(double)elapsedTime/1000.0;
+			int yMov = factor*yvel*(double)elapsedTime/1000.0;
 			//up:
 			while(yMov < 0) {
 				bool collision = false;
@@ -854,6 +866,10 @@ class Player {
 	
 	void update() {
 		collision->update();
+	}
+	
+	void changeTileSize(int tileSize) {
+		collision->changeTileSize(tileSize);
 	}
 	
 	SDL_Rect getRect() {
