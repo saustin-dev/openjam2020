@@ -1,5 +1,0 @@
-To-Do:
-*Make player sprites look better?
-
-*Add enemies???
-*Design levels

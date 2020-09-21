@@ -11,6 +11,7 @@
 #include "GameData.h"
 #include "PlayerLogic.h"
 #include "GameObject.h"
+#include "Cutscenes.h"
 
 /**
  * Store the coordinates of the mouse pointer
@@ -250,6 +251,7 @@ class GameWindow : public Window {
 						levelState->deleteSave();
 						object->reloadState();
 						object->reset();
+						startCutscene(renderer);
 						changeVisual("Game");
 						break;
 					case 1:

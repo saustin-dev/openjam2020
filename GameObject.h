@@ -12,6 +12,7 @@
 #include "PlayerLogic.h"
 #include "LevelInfo.h"
 #include "LevelState.h"
+#include "Cutscenes.h"
 
 #ifndef GAMEOBJECT_H
 #define GAMEOBJECT_H
@@ -177,6 +178,7 @@ class GameObject : public Visual {
 	private:
 	int width;
 	int height;
+	SDL_Renderer *renderer;
 	//holds onto the current level as well as all loaded levels
 	GameLevel *currentLevel;
 	std::vector<GameLevel*> levels;
@@ -190,6 +192,7 @@ class GameObject : public Visual {
 	
 	public:
 	GameObject(SDL_Renderer *renderer, CommandQueue *queuePtr, LevelState *levelState,  int tileSize, int width, int height) {
+		this->renderer = renderer;
 		//load up all the levels
 		for(int i = 0; i < LEVEL_COUNT; i++) {
 			//printf("Loaded level #%d with left start coords %d,%d\n",i,START_COORDS[i][0][0],START_COORDS[i][0][1]);
@@ -231,6 +234,10 @@ class GameObject : public Visual {
 	}
 	
 	bool switchLevel(std::string filename) {
+		if(filename == "win") {
+			endCutscene(renderer);
+			reset();
+		}
 		for(unsigned int i = 0; i<levels.size(); i++) {
 			if(levels.at(i)->getFilename() == filename) {
 				currentLevel = levels.at(i);
