@@ -1,8 +1,5 @@
 To-Do:
-*Fix pausing still tracking movement
-*Add some acceleration in air for jumping
-*Fine tune movement to be better
+*Make player sprites look better?
 
-*Beautify the game (find better backgrounds, font)
 *Add enemies???
 *Design levels

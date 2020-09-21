@@ -21,11 +21,12 @@ int const RELATIVE_TILESIZE = 32;
 /**
  * Constants for speed and such
  */
-int const GRAVITY = 1000;
-int const RUN_SPEED = 300;
-int const MAX_YVEL = 3000;
-int const JUMP_YVEL = -700;
-int const AIRSTRAFE = 100;
+double const GRAVITY = 1500;
+double const RUN_SPEED = 350;
+double const SLIDE_SPEED = 450;
+double const MAX_YVEL = 3000;
+double const JUMP_YVEL = -825;
+double const AIRSTRAFE = 1000;
 
 static bool leftDown;
 static bool rightDown;
@@ -38,9 +39,10 @@ class Player {
 	class PlayerCollider {
 		private:
 		SDL_Rect rect;
-		int xvel;
-		int yvel;
-		int gravity;
+		double xvel;
+		double yvel;
+		double xacc;
+		double gravity;
 		Player *parent;
 		unsigned int lastTime;
 		MapData *map;
@@ -51,6 +53,7 @@ class Player {
 		PlayerCollider(int xpos, int ypos, Player *parent, MapData *map, int tileSize) {
 			xvel = 0;
 			yvel = 0;
+			xacc = 0;
 			gravity = 0;
 			changeTileSize(tileSize);
 			changeMap(map, xpos, ypos);
@@ -64,18 +67,24 @@ class Player {
 		}
 		
 		void updateFactor() {
-			factor = tileSize / RELATIVE_TILESIZE;
+			factor = (double)tileSize / RELATIVE_TILESIZE;
 		}
 		
 		void changeTileSize(int tileSize) {
+			double oldX = (double)rect.x/factor;
+			double oldY = (double)rect.y/factor;
 			this->tileSize = tileSize;
 			updateFactor();
-			rect = { rect.x, rect.y, (int)(WIDTH * factor), (int)(HEIGHT * factor) };
+			rect = { (int)(oldX * factor), (int)(oldY * factor), (int)(WIDTH * factor), (int)(HEIGHT * factor) };
 		}
 		
 		void changeMap(MapData *map, int x, int y) {
 			rect = { x, y, (int)(WIDTH * factor), (int)(HEIGHT * factor) };
 			this->map = map;
+		}
+		
+		void clearXAcc() {
+			xacc = 0;
 		}
 		
 		void setGravity(int grav) {
@@ -92,9 +101,9 @@ class Player {
 		
 		void strafe(bool direction) {
 			if(!direction)
-				xvel -= AIRSTRAFE;
+				xacc = -1*AIRSTRAFE;
 			else 
-				xvel += AIRSTRAFE;
+				xacc = AIRSTRAFE;
 		}
 		
 		void move(bool direction) {
@@ -104,12 +113,26 @@ class Player {
 				xvel = RUN_SPEED;
 		}
 		
+		void slide(bool direction) {
+			if(!direction)
+				xvel = -1*SLIDE_SPEED;
+			else
+				xvel = SLIDE_SPEED;
+		}
+		
 		void update() {
 			unsigned int elapsedTime = SDL_GetTicks() - lastTime;
+			elapsedTime -= parent->readInactiveTime();
 			lastTime = SDL_GetTicks();
-			//check collision, move if possible, and if collided tell parent state
 			yvel += gravity*(double)elapsedTime/1000.0;
+			xvel -= xacc*(double)elapsedTime/1000.0;
+			if(yvel > MAX_YVEL)
+				yvel = MAX_YVEL;
+			if(abs(xvel) > SLIDE_SPEED) {
+				xvel = SLIDE_SPEED * xvel/abs(xvel);
+			}
 			
+			//check collision, move if possible, and if collided tell parent state
 			int xMov = factor*xvel*(double)elapsedTime/1000.0;
 			//left:
 			while(xMov < 0) {
@@ -222,6 +245,7 @@ class Player {
 		
 		void stop() {
 			xvel = 0;
+			clearXAcc();
 		}
 		
 		void jump() {
@@ -503,10 +527,12 @@ class Player {
 		void onUpdate() {
 			parent->getCollision()->clearYVel();
 			parent->getCollision()->move(parent->getFacing());
+			parent->getCollision()->clearXAcc();
 		}
 		void onActive() {
 			parent->getCollision()->clearYVel();
 			parent->getCollision()->move(parent->getFacing());
+			parent->getCollision()->clearXAcc();
 		}
 	};
 	class SlidingState : public PlayerState {
@@ -514,13 +540,12 @@ class Player {
 		//ticks when slide state was entered
 		unsigned int slideBeginTime;
 		//how long the slide lasts in ms
-		unsigned int slideDuration;
+		unsigned int const slideDuration = 600;
 		
 		public:
 		SlidingState(SDL_Renderer *renderer, Player *parent) {
 			filename = "sliding";
 			extension = ".png";
-			slideDuration = 1000;
 			frames = 1;
 			framerate = 0;
 			this->renderer = renderer;
@@ -573,7 +598,8 @@ class Player {
 		//move, check if slide time has elapsed and if so switch to running, standing, or crouching
 		void onUpdate() {
 			parent->getCollision()->clearYVel();
-			parent->getCollision()->move(parent->getFacing());
+			parent->getCollision()->slide(parent->getFacing());
+			parent->getCollision()->clearXAcc();
 			if(SDL_GetTicks() > slideBeginTime + slideDuration) {
 				if(downDown) {
 					parent->setState("crouching");
@@ -596,7 +622,8 @@ class Player {
 		void onActive() {
 			slideBeginTime = SDL_GetTicks();
 			parent->getCollision()->clearYVel();
-			parent->getCollision()->move(parent->getFacing());
+			parent->getCollision()->slide(parent->getFacing());
+			parent->getCollision()->clearXAcc();
 		}
 	};
 	class JumpingState : public PlayerState {
@@ -670,15 +697,25 @@ class Player {
 		}
 		//do nothing
 		void onLeftUp() {
+			if(!rightDown)
+				parent->getCollision()->clearXAcc();
 		}
 		void onRightUp() {
+			if(!leftDown)
+				parent->getCollision()->clearXAcc();
 		}
 		void onDownUp() {
 		}
 		
-		//apply gravity
+		//apply gravity, strafe
 		void onUpdate() {
 			parent->getCollision()->setGravity(1);
+			if(rightDown && !leftDown) {
+				parent->getCollision()->strafe(0);
+			}
+			else if(!rightDown && leftDown) {
+				parent->getCollision()->strafe(1);
+			}
 		}
 		void onActive() {
 			parent->getCollision()->setGravity(1);
@@ -741,6 +778,7 @@ class Player {
 				parent->getCollision()->move(1);
 		}
 		void onDownDown() {
+			parent->setState("jumping");
 		}
 		void onJump() {
 		}
@@ -759,14 +797,12 @@ class Player {
 		//apply gravity, change x-vel based on down keys
 		void onUpdate() {
 			parent->getCollision()->setGravity(-1);
+			parent->getCollision()->clearXAcc();
 		}
 		//get what direction keys are down
 		void onActive() {
 			parent->getCollision()->setGravity(-1);
-			SDL_PumpEvents();
-			Uint8 const *state = SDL_GetKeyboardState(NULL);
-			rightDown = state[SDL_SCANCODE_D];
-			leftDown = state[SDL_SCANCODE_A];
+			parent->getCollision()->clearXAcc();
 		}
 	};
 	
@@ -779,7 +815,8 @@ class Player {
 	JumpingState *jumping;
 	GlidingState *gliding;
 	PlayerCollider *collision;
-	
+	unsigned int inactiveTime;
+	unsigned int lastActiveTime;
 	
 	
 	public:
@@ -791,6 +828,8 @@ class Player {
 		jumping = new JumpingState(renderer, this);
 		gliding = new GlidingState(renderer, this);
 		currentState = standing;
+		inactiveTime = 0;
+		lastActiveTime = 0;
 		
 		collision = new PlayerCollider(x, y, this, mapData, tileSize);
 	}
@@ -802,6 +841,12 @@ class Player {
 		delete(jumping);
 		delete(gliding);
 		
+	}
+	
+	unsigned int readInactiveTime() {
+		unsigned int output = inactiveTime;
+		inactiveTime = 0;
+		return output;
 	}
 	
 	void changeMap(MapData *newMap, int x, int y, bool facing) {
@@ -926,6 +971,14 @@ class Player {
 					break;
 			}
 		}
+	}
+	
+	void onActive() {
+		inactiveTime = SDL_GetTicks() - lastActiveTime;
+	}
+	
+	void onInactive() {
+		lastActiveTime = SDL_GetTicks();
 	}
 };
 

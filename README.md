@@ -9,5 +9,7 @@ This is my repo for my entry to Open Jam 2020.
 - Geany
 - Ubuntu
 - Musescore
-- Pinta
 - Audacity
+- Pinta
+- GIMP
+

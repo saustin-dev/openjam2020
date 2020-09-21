@@ -12,7 +12,8 @@
 /**
  * The font to use
  */
-std::string const FONT_NAME = "Assets/TTF/Ubuntu-R.ttf";
+std::string const FONT_NAMES[] = { "Assets/TTF/Ubuntu-R.ttf", "Assets/TTF/AftaSerifThin-Regular.ttf" };
+std::string const FONT_NAME = FONT_NAMES[1];
 int const FONT_SIZE = 64;
 
 //Visual output

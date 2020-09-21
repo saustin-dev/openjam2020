@@ -321,7 +321,7 @@ class MapData {
 };
 
 void floodFill(MapData *mapData, int x, int y, int newValue) {
-	printf("Fill called with value=%d\n",newValue);
+	//printf("Fill called with value=%d\n",newValue);
 	if(x < 0 || y < 0 || x>=mapData->getW() || y>=mapData->getH()) {
 		return;
 	}
@@ -701,7 +701,7 @@ void saveFile(MapData *data) {
 			printf("Please enter a filename.\n");
 			continue;
 		}
-		FILE *fp = fopen(filename, "r");
+		/*FILE *fp = fopen(filename, "r");
 		if(fp) {
 			fclose(fp);
 			printf("File already exists, overwrite? (y,n): ");
@@ -720,7 +720,7 @@ void saveFile(MapData *data) {
 				printf("Invalid input.\n");
 				continue;
 			}
-		}
+		}*/
 		std::string newfilename(filename);
 		outputFilename = newfilename;
 		try {

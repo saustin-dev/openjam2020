@@ -123,7 +123,7 @@ class GameLevel {
 			player->changeMap(data,tileSize*upCoords[0],tileSize*upCoords[1],0);
 		}
 		else if(side == 3) {
-			player->changeMap(data,tileSize*downCoords[0],tileSize*upCoords[1],1);
+			player->changeMap(data,tileSize*downCoords[0],tileSize*downCoords[1],1);
 		}
 		
 		return "play " + musicCommand;
@@ -223,6 +223,13 @@ class GameObject : public Visual {
 		lastSide = levelState->getSide();
 	}
 	
+	void changeTileSize(int tileSize) {
+		player->changeTileSize(tileSize);
+		for(int i = 0; i < LEVEL_COUNT; i++) {
+			levels.at(i)->setTileSize(tileSize);
+		}
+	}
+	
 	bool switchLevel(std::string filename) {
 		for(unsigned int i = 0; i<levels.size(); i++) {
 			if(levels.at(i)->getFilename() == filename) {
@@ -303,7 +310,12 @@ class GameObject : public Visual {
 	}
 	
 	std::string onActive() {
+		player->onActive();
 		return "play " + currentLevel->getMusicCommand();
+	}
+	
+	void onInactive() {
+		player->onInactive();
 	}
 	
 	//empty virtual functions from visual

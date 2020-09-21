@@ -17,27 +17,34 @@
  */
 int mouseX = 0;
 int mouseY = 0;
-/**
- * Default window dimensions
- */
-int const SCREEN_WIDTH = 1280;
-int const SCREEN_HEIGHT = 720;
+
 /**
  * The default window title
  */
-std::string WINDOW_TITLE = "Game Window";
+std::string WINDOW_TITLE = "Over The Clouds";
 
 /**
  * Windowed resolutions to toggle through
  */
 int const X_RESOLUTIONS[2][3] = { { 640, 1024, 1200 }, { 720, 1280, 1600 } };
 int const Y_RESOLUTIONS[2][3] = { { 480, 768, 900 }, { 480, 720, 900 } };
+int const TILE_SIZES[3] = {32,48,64};
 int const FULLSCREEN_OPTIONS[3] = { 0, SDL_WINDOW_FULLSCREEN, SDL_WINDOW_FULLSCREEN_DESKTOP };
 int ratio = 1;
-int res = 0;
+int res = 1;
 int fullscreen = 0;
 
+/**
+ * Store window dimensions
+ */
+int SCREEN_WIDTH = X_RESOLUTIONS[ratio][res];
+int SCREEN_HEIGHT = Y_RESOLUTIONS[ratio][res];
 
+/**
+ * Framerate info
+ */
+int const FRAMERATE = 60;
+int const MS_DELAY = 1000/FRAMERATE;
 
 class MusicHandler {
 	private:
@@ -84,12 +91,12 @@ class GameWindow : public Window {
 		quit = false;
 		this->renderer = renderer;
 		activeVisual = nullptr;
-		this->activeTitle = "Main Menu";
+		this->activeTitle = WINDOW_TITLE;
 		this->queue = new CommandQueue();
 		this->music = new MusicHandler();
-		backTitle = "Main Menu";
+		backTitle = WINDOW_TITLE;
 		levelState = new LevelState("Data/savedata.sav");
-		object = new GameObject(renderer, queue, levelState, 32, SCREEN_WIDTH, SCREEN_HEIGHT);
+		object = new GameObject(renderer, queue, levelState, TILE_SIZES[res], SCREEN_WIDTH, SCREEN_HEIGHT);
 		
 		build();
 		
@@ -116,24 +123,22 @@ class GameWindow : public Window {
 		
 		//Assemble all the different menus
 		std::string buttons[3] = {"Start Game","Options","Quit"};
-		Menu *mainMenu = new Menu(renderer, "Main Menu", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/test.ogg", 3, buttons, 1, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *mainMenu = new Menu(renderer, WINDOW_TITLE, "Assets/Image/Clouds 2.png", "play Assets/Sound/Interlude.ogg", 3, buttons, 1, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(mainMenu);
 		std::string buttons2[4] = {"Fullscreen","Switch Resolution","Switch Ratio", "Go Back"};
-		Menu *optionsMenu = new Menu(renderer, "Options", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/Interlude.ogg", 4, buttons2, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *optionsMenu = new Menu(renderer, "Options", "Assets/Image/Clouds 2.png", "play Assets/Sound/Interlude.ogg", 4, buttons2, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(optionsMenu);
 		
 		std::string buttons3[3] = {"New Game","Load Game","Go Back"};
 		if(!levelState->doesFileExist())
 			buttons3[1] = "<No Data>";
-		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/Interlude.ogg", 3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *fileMenu = new Menu(renderer, "Play Game", "Assets/Image/Clouds 2.png", "play Assets/Sound/Interlude.ogg", 3, buttons3, -1, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(fileMenu);
 		
 		std::string buttons4[3] = {"Resume","Options","Main Menu"};
-		Menu *pauseMenu = new Menu(renderer, "Pause", "Assets/Image/Clouds 1.bmp", "play Assets/Sound/Interlude.ogg", 3, buttons4, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+		Menu *pauseMenu = new Menu(renderer, "Pause", "Assets/Image/Clouds 2.png", "play Assets/Sound/Interlude.ogg", 3, buttons4, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 		visuals.push_back(pauseMenu);
 		
-		//GameDrawer *drawer = new GameDrawer(renderer,"Game","Assets/Image/Clouds 1.bmp", "play Assets/Sound/JourneyAhead.ogg", {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},readFile("Data/Maps/TestMap.map"),64);
-		//visuals.push_back(drawer);
 		visuals.push_back(object);
 		object->resize(SCREEN_WIDTH, SCREEN_HEIGHT);
 		
@@ -145,6 +150,8 @@ class GameWindow : public Window {
 		SCREEN_WIDTH = width;
 		SDL_SetWindowSize(window, width, height);
 		SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+		object->resize(width, height);
+		object->changeTileSize(TILE_SIZES[res]);
 		build();
 	}
 	
@@ -155,6 +162,8 @@ class GameWindow : public Window {
 				queue->add(activeVisual->onActive());
 				if(!building)
 					backTitle = activeTitle;
+				if(activeTitle == "Game")
+					object->onInactive();
 				activeTitle = title;
 				break;
 			}
@@ -196,7 +205,7 @@ class GameWindow : public Window {
 		//Only care about left clicks
 		if(event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
 			int clicked = activeVisual->click(mouseX, mouseY);
-			if(activeVisual->getTitle() == "Main Menu") {
+			if(activeVisual->getTitle() == WINDOW_TITLE) {
 				switch (clicked) {
 					case 0:
 						changeVisual("Play Game");
@@ -252,7 +261,7 @@ class GameWindow : public Window {
 						changeVisual("Game");
 						break;
 					case 2:
-						changeVisual("Main Menu");
+						changeVisual(WINDOW_TITLE);
 						break;
 				}
 			}
@@ -271,7 +280,7 @@ class GameWindow : public Window {
 						levelState->save();
 						build();
 						//Return to main menu
-						changeVisual("Main Menu");
+						changeVisual(WINDOW_TITLE);
 						break;
 				}
 			}
@@ -314,6 +323,9 @@ int main() {
 	Mix_Init(MIX_INIT_MP3|MIX_INIT_OGG);
 	Mix_OpenAudio(44100,MIX_DEFAULT_FORMAT,2,2048);
 	SDL_Window *window = SDL_CreateWindow(WINDOW_TITLE.c_str(),SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,SCREEN_WIDTH,SCREEN_HEIGHT,0);
+	SDL_Surface *icon = IMG_Load("Assets/Image/Character/icon.png");
+	SDL_SetWindowIcon(window, icon);
+	SDL_FreeSurface(icon);
 	SDL_SetWindowResizable(window,SDL_TRUE);
 	SDL_Renderer *renderer  = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
@@ -333,7 +345,7 @@ int main() {
 		SDL_RenderPresent(renderer);
 		unsigned int elapsedTime = SDL_GetTicks() - lastTime;
 		lastTime = SDL_GetTicks();
-		SDL_Delay(elapsedTime <= 16 ? 16 - elapsedTime : 0);
+		SDL_Delay(elapsedTime <= MS_DELAY ? MS_DELAY - elapsedTime : 0);
 	}
 
 	//quit SDL

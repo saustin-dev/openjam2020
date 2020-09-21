@@ -147,7 +147,7 @@ class Menu : public Visual {
 		else {
 			rect = { 2*SCREEN_WIDTH/3, 0, SCREEN_WIDTH/3, SCREEN_HEIGHT };
 		}
-		
+		elements.push_back(new SpecificElement(new ColorTile({100,100,100,100}, renderer),rect));
 		//get each part of the menu its space rectangle
 		int verticalUnits = buttons + 1;
 		SDL_Rect subrect = rect;
