@@ -22,6 +22,7 @@ On Linux, build with the command:
 g++ -o "Game" "Game.cpp" -lm -lSDL2 -lSDL2_mixer -lSDL2_image -lSDL2_ttf
 or for the level editor:
 g++ -o "LevelEditor" "LevelEditor.cpp" -lm -lSDL2 -lSDL2_mixer -lSDL2_image -lSDL2_ttf
+On older systems you may need to add the option -std=c++11.
 
 Then run with ./LevelEditor or ./Game
 
